@@ -93,11 +93,14 @@ app.use(helmet({
         isDev ? 'http://localhost:*' : CONFIG.SITE_URL,
         "https://analytics-umami.zephyyrr.in"
       ],
+      frameSrc: ["'self'", "https://analytics-umami.zephyyrr.in"],
+      frameAncestors: ["'self'"],
     },
   },
-  crossOriginEmbedderPolicy: !isDev,
-  crossOriginOpenerPolicy: !isDev,
-  crossOriginResourcePolicy: !isDev
+  // Disable COEP, COOP, and CORP in both dev and prod for analytics to work
+  crossOriginEmbedderPolicy: false,
+  crossOriginOpenerPolicy: false,
+  crossOriginResourcePolicy: false
 }));
 
 const limiter = rateLimit({
@@ -670,8 +673,13 @@ app.get('/', (req, res) => {
         </div>
 
         <div id="toast" class="toast"></div>
+        <script defer 
+        crossorigin="anonymous"
+        nonce="${res.locals.nonce}" 
+        src="https://analytics-umami.zephyyrr.in/script.js" 
+        data-website-id="577ed5ec-6d5d-4d7c-b523-7072a403b8b0">
+      </script>
         <script src="/static/installer.js"></script>
-        <script defer nonce="${res.locals.nonce}" src="https://analytics-umami.zephyyrr.in/script.js" data-website-id="577ed5ec-6d5d-4d7c-b523-7072a403b8b0"></script>
       </body>
     </html>
   `);
