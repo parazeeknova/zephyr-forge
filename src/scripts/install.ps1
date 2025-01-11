@@ -8,7 +8,6 @@ $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 $host.UI.RawUI.WindowTitle = "⚡ Zephyr Installer"
 $windowSize = $host.UI.RawUI.WindowSize
-$bufferSize = $host.UI.RawUI.BufferSize
 $width = $windowSize.Width
 $height = $windowSize.Height
 
@@ -25,7 +24,6 @@ $colors = @{
 
 function Set-DarkBackground {
     Clear-Host
-    $bg = " " * ($width * $height)
     [Console]::BackgroundColor = [System.ConsoleColor]::Black
     [Console]::ForegroundColor = [System.ConsoleColor]::White
     [Console]::Clear()
