@@ -633,7 +633,7 @@ app.get('/', (req, res) => {
             <div class="command-line">
               <span class="prompt">$</span>
               <div class="command-wrapper" data-command="unix">
-                <span class="command">curl -fsSL http://localhost:${port}/${envVars.UNIX_SCRIPT} | bash</span>
+                <span class="command">curl -fsSL https://forge.zephyyrr.in/${envVars.UNIX_SCRIPT} | bash</span>
                 <div class="copy-wrapper">
                   <button class="copy-button">copy</button>
                 </div>
@@ -643,7 +643,7 @@ app.get('/', (req, res) => {
             <div class="command-line">
               <span class="prompt">></span>
               <div class="command-wrapper" data-command="windows">
-                <span class="command">irm http://localhost:${port}/${envVars.WINDOWS_SCRIPT} | iex</span>
+                <span class="command">irm https://forge.zephyyrr.in/${envVars.WINDOWS_SCRIPT} | iex</span>
                 <div class="copy-wrapper">
                   <button class="copy-button">copy</button>
                 </div>
