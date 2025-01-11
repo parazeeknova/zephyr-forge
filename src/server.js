@@ -18,7 +18,7 @@ import crypto from 'node:crypto';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const dbPath = process.env.NODE_ENV === 'production' 
+const dbPath = process.env.NODE_ENV === 'production'
   ? '/app/data/stats.db'
   : join(__dirname, 'data', 'stats.db');
 
@@ -62,6 +62,7 @@ const CONFIG = {
 };
 
 const app = express();
+app.set('trust proxy', 1);
 const port = process.env.PORT || 3000;
 const isDev = process.env.NODE_ENV === 'development';
 
@@ -106,6 +107,8 @@ app.use(helmet({
 const limiter = rateLimit({
   windowMs: isDev ? 60 * 1000 : CONFIG.RATE_LIMIT.WINDOW_MS,
   max: isDev ? 100 : CONFIG.RATE_LIMIT.MAX_REQUESTS,
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 
 app.use(cors({
@@ -181,9 +184,9 @@ app.get('/api/status', async (req, res) => {
     res.json(status);
   } catch (error) {
     console.error('Status check failed:', error);
-    res.status(500).json({ 
-      status: 'error', 
-      message: isDev ? error.message : 'Internal server error' 
+    res.status(500).json({
+      status: 'error',
+      message: isDev ? error.message : 'Internal server error'
     });
   }
 });
@@ -686,7 +689,7 @@ app.get('/', (req, res) => {
 });
 
 app.listen(CONFIG.PORT, () => {
-  const message = isDev 
+  const message = isDev
     ? `
 =============================================================================
                     ZEPHYR INSTALLER (DEVELOPMENT MODE)
