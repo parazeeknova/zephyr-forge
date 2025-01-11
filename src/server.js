@@ -230,7 +230,7 @@ app.get('/', (req, res) => {
     <html lang="en">
       <head>
         <title>Zephyr Forge</title>
-        <link rel="icon" href="https://raw.githubusercontent.com/parazeeknova/zephyr-forge/d28d68ce175625644f365c9391c388cc9d07010a/src/public/forge.svg" type="image/svg+xml">
+        <link rel="icon" href="https://raw.githubusercontent.com/parazeeknova/zephyr-forge/c1f0f00554f19058ae32e275c03fe2fc22648d03/src/public/forge.svg" type="image/svg+xml">
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <meta name="description" content="Official environment setup for Zephyr development">
@@ -278,7 +278,7 @@ app.get('/', (req, res) => {
             display: inline-block;
             margin-bottom: 1.5rem;
             text-decoration: none;
-            text-align: center;  /* Added */
+            text-align: center;
           }
 
           .logo, .logo-hover {
@@ -287,8 +287,8 @@ app.get('/', (req, res) => {
             font-size: 0.8rem;
             line-height: 1.2;
             transition: opacity 0.3s ease-in-out;
-            display: inline-block;  /* Added */
-            text-align: left;  /* Added */
+            display: inline-block;
+            text-align: center;
           }
 
           .logo-hover {
@@ -333,7 +333,7 @@ app.get('/', (req, res) => {
             display: inline-block;
             text-align: left;
             width: 100%;
-            max-width: 500px;
+            max-width: 550px;
           }
 
           .command-line {
@@ -449,7 +449,7 @@ app.get('/', (req, res) => {
             text-align: left;
             font-size: 0.8rem;
             color: var(--dim);
-            max-width: 500px;
+            max-width: 550px;
             margin-left: auto;
             margin-right: auto;
             padding: 1rem;
@@ -510,7 +510,7 @@ app.get('/', (req, res) => {
             }
             
             .commands {
-              max-width: 100%;
+              max-width: 90%;
             }
 
             .command-wrapper {
@@ -536,23 +536,86 @@ app.get('/', (req, res) => {
           }
 
           @media (max-width: 480px) {
-            .logo, .logo-hover {
-              font-size: 0.5rem;
+            .terminal {
+              padding: 0.5rem;
+              width: 100%;
+              max-width: 100%;
             }
 
-            .main-desc {
-              font-size: 0.75rem;
+            .commands {
+              width: 100%;
+              padding: 0 0.5rem;
             }
 
-            .sub-desc {
-              font-size: 0.7rem;
+            .command-line {
+              margin: 0.5rem 0;
+              width: 100%;
             }
 
             .command-wrapper {
-              padding: 0.25rem 0.4rem;
+              min-width: unset;
+              width: 100%;
+              padding: 0.4rem;
+            }
+
+            .command {
+              font-size: 0.65rem;
+              padding-right: 0.5rem;
+              overflow-x: auto;
+              white-space: nowrap;
+              scrollbar-width: none; /* Firefox */
+              -ms-overflow-style: none; /* IE and Edge */
+            }
+
+            .command::-webkit-scrollbar {
+              display: none; /* Chrome, Safari, Opera */
+            }
+
+            .copy-wrapper {
+              display: flex;
+              align-items: center;
+              gap: 0.3rem;
+              flex-shrink: 0;
+            }
+
+            .copy-button {
+              font-size: 0.65rem;
+              padding: 0.2rem 0.4rem;
+            }
+
+            .copy-count {
+              font-size: 0.65rem;
+            }
+
+            .prompt {
+              font-size: 0.7rem;
+              min-width: 1rem;
+            }
+
+            .typing-text {
+              font-size: 0.7rem;
+              padding: 0 0.5rem;
+              margin-bottom: 1rem;
+            }
+
+            .logo, .logo-hover {
+              font-size: 0.45rem;
+              transform: scale(0.9);
+            }
+
+            .status-indicator {
+              font-size: 0.65rem;
+              padding: 0.3rem 0.5rem;
+              right: 0.5rem;
+              top: 0.5rem;
+            }
+
+            .disclaimer {
+              font-size: 0.65rem;
+              padding: 0.75rem;
+              margin: 1rem 0.5rem;
             }
           }
-          
           .status-indicator {
             position: absolute;
             top: 1rem;
