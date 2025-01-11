@@ -136,6 +136,7 @@ const CONFIG = window.SERVER_CONFIG || {
   }
 
   function initializeUI() {
+    // biome-ignore lint/complexity/noForEach: This is a simple loop
     document.querySelectorAll('.command-wrapper').forEach(wrapper => {
       const button = wrapper.querySelector('.copy-button');
       if (!button) return;

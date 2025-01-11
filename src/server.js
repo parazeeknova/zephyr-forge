@@ -75,12 +75,13 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'"],
+      scriptSrc: ["'self'", "https://analytics-umami.zephyyrr.in"],
       styleSrc: ["'self'", "'unsafe-inline'"],
       imgSrc: ["'self'", "data:", "https:"],
       connectSrc: [
         "'self'",
-        isDev ? 'http://localhost:*' : CONFIG.SITE_URL
+        isDev ? 'http://localhost:*' : CONFIG.SITE_URL,
+        "https://analytics-umami.zephyyrr.in"
       ],
     },
   },
@@ -213,7 +214,7 @@ app.get('/', (req, res) => {
     <html lang="en">
       <head>
         <title>Zephyr Forge</title>
-        <link rel="icon" href="./public/zephyr.svg" type="image/svg+xml">
+        <link rel="icon" href="https://raw.githubusercontent.com/parazeeknova/zephyr-forge/d28d68ce175625644f365c9391c388cc9d07010a/src/public/zephyr.svg" type="image/svg+xml">
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <meta name="description" content="Official environment setup for Zephyr development">
@@ -592,7 +593,6 @@ app.get('/', (req, res) => {
           opacity: 0.8;
         }
         </style>
-        <script defer src="https://analytics-umami.zephyyrr.in/script.js" data-website-id="577ed5ec-6d5d-4d7c-b523-7072a403b8b0"></script>
         <script>
           window.SERVER_CONFIG = {
             API_BASE: '/api',
@@ -661,6 +661,7 @@ app.get('/', (req, res) => {
 
         <div id="toast" class="toast"></div>
         <script src="/static/installer.js"></script>
+        <script defer src="https://analytics-umami.zephyyrr.in/script.js" data-website-id="577ed5ec-6d5d-4d7c-b523-7072a403b8b0"></script>
       </body>
     </html>
   `);
