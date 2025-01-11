@@ -1,13 +1,10 @@
 services:
   installer:
     build: .
-    ports:
-      - "3060:3060"
     volumes:
       - ./data:/app/data
     environment:
       - NODE_ENV=production
-      - PORT=3060
       - STATUS_INTERVAL=30000
       - COPY_TIMEOUT=1000
       - TOAST_DURATION=2000
