@@ -304,10 +304,62 @@ function Install-Zephyr([string]$InstallDir) {
         }
 
         Clear-HostScreen
-        Write-CenteredText "✨ Installation Complete! ✨" -Color $colors.Green -OffsetY -6
-        Write-CenteredText "Development environment is ready!" -Color $colors.Yellow -OffsetY -4
-        Write-CenteredText "Branch: $selectedBranch" -Color $colors.Gray -OffsetY -2
-        Start-Sleep -Seconds 5
+        Write-CenteredText "Installation Complete! ✨" -Color $colors.Green -OffsetY -8
+        Write-CenteredText "Development environment is ready!" -Color $colors.Yellow -OffsetY -6
+        Write-CenteredText "Branch: $selectedBranch" -Color $colors.Gray -OffsetY -4
+
+        Write-CenteredText "What would you like to do next?" -Color $colors.Blue -OffsetY -1
+        
+        $options = @(
+            @{Key="1"; Name="Open in Visual Studio Code"; Action={ code $InstallDir }}
+            @{Key="2"; Name="Open Folder Location"; Action={ explorer $InstallDir }}
+            @{Key="3"; Name="Start Development Server"; Action={ 
+                Set-Location $InstallDir
+                pnpm run dev
+            }}
+            @{Key="4"; Name="Exit"; Action={ exit 0 }}
+        )
+        
+        $selectedIndex = 0
+        $done = $false
+        
+        while (-not $done) {
+            foreach ($i in 0..($options.Count - 1)) {
+                $option = $options[$i]
+                $color = if ($i -eq $selectedIndex) { $colors.Green } else { $colors.Gray }
+                $prefix = if ($i -eq $selectedIndex) { "→ " } else { "  " }
+                Write-CenteredText "$prefix$($option.Key). $($option.Name)" -Color $color -OffsetY (1 + $i)
+            }
+            
+            $key = [Console]::ReadKey($true)
+            switch ($key.Key) {
+                "UpArrow" { 
+                    $selectedIndex = if ($selectedIndex -eq 0) { $options.Count - 1 } else { $selectedIndex - 1 }
+                    Clear-HostScreen
+                    Write-CenteredText "✨ Installation Complete! ✨" -Color $colors.Green -OffsetY -8
+                    Write-CenteredText "Development environment is ready!" -Color $colors.Yellow -OffsetY -6
+                    Write-CenteredText "Branch: $selectedBranch" -Color $colors.Gray -OffsetY -4
+                    Write-CenteredText "What would you like to do next?" -Color $colors.Blue -OffsetY -1
+                }
+                "DownArrow" { 
+                    $selectedIndex = if ($selectedIndex -eq $options.Count - 1) { 0 } else { $selectedIndex + 1 }
+                    Clear-HostScreen
+                    Write-CenteredText "✨ Installation Complete! ✨" -Color $colors.Green -OffsetY -8
+                    Write-CenteredText "Development environment is ready!" -Color $colors.Yellow -OffsetY -6
+                    Write-CenteredText "Branch: $selectedBranch" -Color $colors.Gray -OffsetY -4
+                    Write-CenteredText "What would you like to do next?" -Color $colors.Blue -OffsetY -1
+                }
+                "Enter" { 
+                    Clear-HostScreen
+                    Write-CenteredText "Executing: $($options[$selectedIndex].Name)..." -Color $colors.Yellow -OffsetY -2
+                    Start-Sleep -Seconds 1
+                    & $options[$selectedIndex].Action
+                    $done = $true
+                }
+            }
+        }
+        
+        Start-Sleep -Seconds 2
         
     } catch {
         Clear-HostScreen

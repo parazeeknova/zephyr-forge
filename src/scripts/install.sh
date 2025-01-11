@@ -1,5 +1,10 @@
 #!/bin/bash
 
+# =============================================================================
+#                         ZEPHYR INSTALLER
+#                      Linux/Unix Installation Script
+# =============================================================================
+
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -9,206 +14,245 @@ CYAN='\033[0;36m'
 GRAY='\033[0;90m'
 NC='\033[0m'
 
-COLUMNS=$(tput cols)
-LINES=$(tput lines)
+TERM_WIDTH=$(tput cols)
+TERM_HEIGHT=$(tput lines)
 
 center_text() {
     local text="$1"
-    local color="$2"
-    local offset="$3"
-
-    local padding=$(( ($COLUMNS - ${#text}) / 2 ))
-    local line_pos=$(( ($LINES / 2) + $offset ))
-    
-    tput cup $line_pos $padding
+    local color="${2:-$NC}"
+    local padding=$3
+    local text_length=${#text}
+    local spaces=$(( (TERM_WIDTH - text_length) / 2 ))
+    printf "%${spaces}s" ""
     echo -e "${color}${text}${NC}"
 }
 
-show_loading() {
-    local text="$1"
-    local offset="$2"
-    local duration="$3"
-    local spinner=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
-    local start=$SECONDS
-    
-    while [ $(($SECONDS - $start)) -lt $duration ]; do
-        for i in "${spinner[@]}"; do
-            center_text "$text $i" "$YELLOW" "$offset"
-            sleep 0.1
-            tput cup $(( ($LINES / 2) + $offset )) 0
-            printf "%${COLUMNS}s" " "
-        done
-    done
+clear_screen() {
+    clear
+    echo -e "\n\n\n"
 }
 
-show_banner() {
-    clear
-    local banner="
-███████╗███████╗██████╗ ██╗  ██╗██╗   ██╗██████╗ 
-╚══███╔╝██╔════╝██╔══██╗██║  ██║╚██╗ ██╔╝██╔══██╗
-  ███╔╝ █████╗  ██████╔╝███████║ ╚████╔╝ ██████╔╝
- ███╔╝  ██╔══╝  ██╔═══╝ ██╔══██║  ╚██╔╝  ██╔══██╗
-███████╗███████╗██║     ██║  ██║   ██║   ██║  ██║
-╚══════╝╚══════╝╚═╝     ╚═╝  ╚═╝   ╚═╝   ╚═╝  ╚═╝"
-    
-    center_text "$banner" "$BLUE" "-5"
-    center_text "Social Media Aggregator" "$NC" "1"
-    center_text "Version 1.0.0 by parazeeknova" "$GRAY" "3"
+show_spinner() {
+    local pid=$1
+    local message="$2"
+    local spinstr='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
+    while [ "$(ps a | awk '{print $1}' | grep $pid)" ]; do
+        local temp=${spinstr#?}
+        printf "\r%s [%c]  " "$message" "$spinstr"
+        local spinstr=$temp${spinstr%"$temp"}
+        sleep 0.1
+    done
+    printf "\r%s [✓]   \n" "$message"
+}
+
+print_banner() {
+    clear_screen
+    center_text "███████╗███████╗██████╗ ██╗  ██╗██╗   ██╗██████╗ " "$BLUE"
+    center_text "╚══███╔╝██╔════╝██╔══██╗██║  ██║╚██╗ ██╔╝██╔══██╗" "$BLUE"
+    center_text "  ███╔╝ █████╗  ██████╔╝███████║ ╚████╔╝ ██████╔╝" "$BLUE"
+    center_text " ███╔╝  ██╔══╝  ██╔═══╝ ██╔══██║  ╚██╔╝  ██╔══██╗" "$BLUE"
+    center_text "███████╗███████╗██║     ██║  ██║   ██║   ██║  ██║" "$BLUE"
+    center_text "╚══════╝╚══════╝╚═╝     ╚═╝  ╚═╝   ╚═╝   ╚═╝  ╚═╝" "$BLUE"
+    center_text "Social Media Aggregator" "$GRAY"
+    center_text "Version 1.0.0 by parazeeknova" "$GRAY"
     sleep 2
 }
 
 check_dependencies() {
-    clear
-    center_text "🔍 Checking Dependencies" "$YELLOW" "-2"
-    
-    local deps=("git" "docker" "node")
-    local offset=0
-    
+    clear_screen
+    center_text "🔍 Checking Dependencies" "$YELLOW"
+    echo
+
+    local deps=("git" "docker" "node" "npm")
+    local all_deps_installed=true
+
     for dep in "${deps[@]}"; do
-        if ! command -v $dep &> /dev/null; then
-            center_text "✗ $dep not found" "$RED" "$offset"
-            center_text "Please install $dep to continue" "$YELLOW" "$(($offset + 1))"
-            exit 1
+        if ! command -v "$dep" &> /dev/null; then
+            center_text "✗ $dep not found" "$RED"
+            center_text "Please install $dep to continue" "$YELLOW"
+            all_deps_installed=false
         else
-            version=$($dep --version)
-            center_text "✓ $dep $version" "$GREEN" "$offset"
+            local version
+            case $dep in
+                "git") version=$(git --version | cut -d' ' -f3) ;;
+                "docker") version=$(docker --version | cut -d' ' -f3 | tr -d ',') ;;
+                "node") version=$(node --version) ;;
+                "npm") version=$(npm --version) ;;
+            esac
+            center_text "✓ $dep $version" "$GREEN"
         fi
-        offset=$((offset + 2))
     done
+
+    if [ "$all_deps_installed" = false ]; then
+        exit 1
+    fi
     sleep 2
 }
 
 get_install_location() {
-    clear
-    center_text "📂 Installation Location" "$YELLOW" "-8"
-    center_text "Where would you like to install Zephyr?" "$NC" "-6"
+    clear_screen
+    center_text "📂 Installation Location" "$YELLOW"
+    echo
+    center_text "Where would you like to install Zephyr?" "$GRAY"
+    echo
     
-    local options=(
-        "Current Directory ($PWD/zephyr)"
-        "Home Directory ($HOME/zephyr)"
-        "Custom Location"
-    )
+    PS3=$'\n'"→ Select an option (1-5): "
+    options=("Current Directory" "Home Directory" "Desktop" "Documents" "Custom Location")
     
-    local offset=-3
-    center_text "Select installation location:" "$BLUE" "$offset"
-    
-    for i in "${!options[@]}"; do
-        center_text "$((i+1)). ${options[$i]}" "$GRAY" "$((offset + 2 * (i+1)))"
-    done
-    
-    center_text "→ " "$PURPLE" "8"
-    read -r choice
-    
-    case $choice in
-        1) echo "$PWD/zephyr";;
-        2) echo "$HOME/zephyr";;
-        3) 
-            clear
-            center_text "Enter custom installation path:" "$YELLOW" "-2"
-            center_text "→ " "$PURPLE" "0"
-            read -r custom_path
-            echo "$custom_path"
-            ;;
-        *) echo "$PWD/zephyr";;
-    esac
-}
-
-select_branch() {
-    clear
-    center_text "🌿 Select Branch" "$YELLOW" "-8"
-    
-    local branches=(
-        "main:Stable release branch focused on production"
-        "development:Development branch (recommended)"
-    )
-    
-    local selected=0
-    local done=false
-    
-    while [ "$done" = false ]; do
-        clear
-        center_text "🌿 Select Branch" "$YELLOW" "-8"
-        center_text "Use UP/DOWN arrows to select, ENTER to confirm" "$GRAY" "-6"
-        
-        for i in "${!branches[@]}"; do
-            IFS=':' read -r name desc <<< "${branches[$i]}"
-            if [ $i -eq $selected ]; then
-                center_text "→ $((i+1)). $name" "$GREEN" "$((-3 + 2 * i))"
-                center_text "   $desc" "$BLUE" "$((-2 + 2 * i))"
-            else
-                center_text "  $((i+1)). $name" "$GRAY" "$((-3 + 2 * i))"
-            fi
-        done
-        
-        read -rsn1 key
-        case "$key" in
-            A) # Up arrow
-                [ $selected -eq 0 ] && selected=$((${#branches[@]}-1)) || selected=$((selected-1))
+    select opt in "${options[@]}"; do
+        case $opt in
+            "Current Directory")
+                INSTALL_DIR="$PWD/zephyr"
+                break
                 ;;
-            B) # Down arrow
-                [ $selected -eq $((${#branches[@]}-1)) ] && selected=0 || selected=$((selected+1))
+            "Home Directory")
+                INSTALL_DIR="$HOME/zephyr"
+                break
                 ;;
-            "") # Enter
-                done=true
+            "Desktop")
+                INSTALL_DIR="$HOME/Desktop/zephyr"
+                break
                 ;;
+            "Documents")
+                INSTALL_DIR="$HOME/Documents/zephyr"
+                break
+                ;;
+            "Custom Location")
+                read -p "Enter custom path: " custom_path
+                INSTALL_DIR="$custom_path"
+                break
+                ;;
+            *) echo "Invalid option" ;;
         esac
     done
     
-    IFS=':' read -r name _ <<< "${branches[$selected]}"
-    echo "$name"
+    echo
+    center_text "Selected location: $INSTALL_DIR" "$BLUE"
+    sleep 2
+    return 0
+}
+
+select_branch() {
+    clear_screen
+    center_text "🌿 Select Branch" "$YELLOW"
+    echo
+    
+    PS3=$'\n'"→ Select a branch (1-2): "
+    branches=("main (Stable release branch)" "development (Development branch)")
+    
+    select branch in "${branches[@]}"; do
+        case $branch in
+            "main (Stable release branch)")
+                SELECTED_BRANCH="main"
+                break
+                ;;
+            "development (Development branch)")
+                SELECTED_BRANCH="development"
+                break
+                ;;
+            *) echo "Invalid option" ;;
+        esac
+    done
+    
+    echo
+    center_text "Selected branch: $SELECTED_BRANCH" "$BLUE"
+    sleep 2
+    return 0
 }
 
 install_zephyr() {
-    local install_dir="$1"
-    clear
-    center_text "⚡ Installing Zephyr" "$YELLOW" "-2"
-    center_text "Location: $install_dir" "$GRAY" "0"
-    
-    if [ -d "$install_dir" ]; then
-        show_loading "Cleaning existing directory" "2" "3"
-        rm -rf "$install_dir"
+    clear_screen
+    center_text "⚡ Installing Zephyr" "$YELLOW"
+    center_text "Location: $INSTALL_DIR" "$GRAY"
+    echo
+
+    if [ -d "$INSTALL_DIR" ]; then
+        rm -rf "$INSTALL_DIR"
     fi
-    
-    branch=$(select_branch)
-    show_loading "Cloning Zephyr repository" "2" "3"
-    git clone -b "$branch" https://github.com/parazeeknova/zephyr.git "$install_dir" -q
-    
-    cd "$install_dir" || exit
-    
-    clear
-    center_text "📦 Installing Dependencies" "$YELLOW" "-2"
-    
-    if ! command -v pnpm &> /dev/null; then
-        center_text "Installing pnpm..." "$GRAY" "0"
-        npm install -g pnpm
-    fi
-    
-    clear
-    center_text "🚀 Starting Development Environment" "$YELLOW" "-2"
-    center_text "This may take a few minutes..." "$GRAY" "0"
-    
-    echo -e "\n\n📋 Project Logs:"
-    echo -e "${GRAY}===============================${NC}\n"
-    
-    pnpm run start 2>&1 | while IFS= read -r line; do
-        echo -e "${NC}$line"
-    done
-    
-    if [ ${PIPESTATUS[0]} -ne 0 ]; then
-        clear
-        center_text "❌ Startup Failed!" "$RED" "-4"
-        center_text "Please check the logs above for details." "$YELLOW" "-2"
+
+    center_text "Cloning repository..." "$BLUE"
+    if ! git clone -b "$SELECTED_BRANCH" https://github.com/parazeeknova/zephyr.git "$INSTALL_DIR" > /dev/null 2>&1; then
+        center_text "Failed to clone repository" "$RED"
         exit 1
     fi
-    
-    clear
-    center_text "✨ Installation Complete! ✨" "$GREEN" "-6"
-    center_text "Development environment is ready!" "$YELLOW" "-4"
-    center_text "Branch: $branch" "$GRAY" "-2"
-    sleep 5
+
+    cd "$INSTALL_DIR" || exit 1
+
+    if ! command -v pnpm &> /dev/null; then
+        center_text "Installing pnpm..." "$BLUE"
+        npm install -g pnpm
+    fi
+
+    center_text "Installing dependencies..." "$BLUE"
+    if ! pnpm install > /dev/null 2>&1; then
+        center_text "Failed to install dependencies" "$RED"
+        exit 1
+    fi
+
+    show_completion_menu
 }
 
-show_banner
+show_completion_menu() {
+    clear_screen
+    center_text "✨ Installation Complete! ✨" "$GREEN"
+    center_text "Development environment is ready!" "$YELLOW"
+    center_text "Branch: $SELECTED_BRANCH" "$GRAY"
+    echo
+    
+    PS3=$'\n'"→ What would you like to do next? (1-5): "
+    options=("Open in VS Code" "Open Folder Location" "Start Development Server" "Show Project Information" "Exit")
+    
+    select opt in "${options[@]}"; do
+        case $opt in
+            "Open in VS Code")
+                if command -v code &> /dev/null; then
+                    code "$INSTALL_DIR"
+                else
+                    center_text "VS Code is not installed" "$RED"
+                fi
+                break
+                ;;
+            "Open Folder Location")
+                if command -v xdg-open &> /dev/null; then
+                    xdg-open "$INSTALL_DIR"
+                elif command -v open &> /dev/null; then
+                    open "$INSTALL_DIR"
+                else
+                    center_text "Cannot open folder location" "$RED"
+                fi
+                break
+                ;;
+            "Start Development Server")
+                clear_screen
+                center_text "Starting development server..." "$YELLOW"
+                cd "$INSTALL_DIR" && pnpm run dev
+                break
+                ;;
+            "Show Project Information")
+                clear_screen
+                center_text "Project Information" "$BLUE"
+                echo
+                center_text "Installation Directory: $INSTALL_DIR" "$GRAY"
+                center_text "Selected Branch: $SELECTED_BRANCH" "$GRAY"
+                center_text "Node Version: $(node --version)" "$GRAY"
+                center_text "PNPM Version: $(pnpm --version)" "$GRAY"
+                echo
+                read -p "Press Enter to continue..."
+                show_completion_menu
+                ;;
+            "Exit")
+                center_text "Thank you for installing Zephyr!" "$GREEN"
+                exit 0
+                ;;
+            *) echo "Invalid option" ;;
+        esac
+    done
+}
+
+trap 'echo -e "\n${RED}Installation interrupted${NC}"; exit 1' INT
+
+print_banner
 check_dependencies
-install_dir=$(get_install_location)
-install_zephyr "$install_dir"
+get_install_location
+select_branch
+install_zephyr
