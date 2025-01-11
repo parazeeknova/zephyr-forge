@@ -1,0 +1,22 @@
+services:
+  installer:
+    build: .
+    ports:
+      - "3060:3060"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - NODE_ENV=production
+      - PORT=3060
+      - STATUS_INTERVAL=30000
+      - COPY_TIMEOUT=1000
+      - TOAST_DURATION=2000
+      - UNIX_SCRIPT=install.sh
+      - WINDOWS_SCRIPT=install.ps1
+      - DOCS_URL=https://github.com/parazeeknova/zephyr
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3060/api/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3

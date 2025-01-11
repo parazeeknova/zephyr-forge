@@ -10,10 +10,8 @@ COPY package.json bun.lockb ./
 
 RUN bun install
 
-COPY . .
+RUN mkdir -p src/public data logs
 
-RUN mkdir -p /app/data
+EXPOSE 3000
 
-VOLUME ["/app/data"]
-
-CMD ["bun", "run", "start"]
+CMD ["bun", "run", "dev"]

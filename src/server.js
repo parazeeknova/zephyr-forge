@@ -14,6 +14,13 @@ import os from 'node:os';
 import sqlite3 from 'sqlite3';
 import { open } from 'sqlite';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+const dbPath = process.env.NODE_ENV === 'production' 
+  ? '/app/data/stats.db'
+  : join(__dirname, 'data', 'stats.db');
+
 let db;
 async function setupDatabase() {
   db = await open({
@@ -52,9 +59,6 @@ const CONFIG = {
   },
   CORS_ORIGIN: process.env.CORS_ORIGIN || '*'
 };
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -208,7 +212,7 @@ app.get('/', (req, res) => {
     <!DOCTYPE html>
     <html lang="en">
       <head>
-        <title>Zephyr Environment Setup</title>
+        <title>Zephyr Forge</title>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <meta name="description" content="Official environment setup for Zephyr development">
@@ -615,12 +619,12 @@ app.get('/', (req, res) => {
 ███████╗███████╗██║     ██║  ██║   ██║   ██║  ██║
 ╚══════╝╚══════╝╚═╝     ╚═╝  ╚═╝   ╚═╝   ╚═╝  ╚═╝</div>
             <div class="logo-hover">
-  ██████╗ ███████╗██╗   ██╗███████╗██╗  
-  ██╔══██╗██╔════╝██║   ██║██╔════╝██║     
-  ██║  ██║█████╗  ██║   ██║█████╗  ██║     
-  ██║  ██║██╔══╝  ╚██╗ ██╔╝██╔══╝  ██║    
-  ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗ 
-  ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝</div>
+███████╗ ██████╗ ██████╗  ██████╗ ███████╗
+██╔════╝██╔═══██╗██╔══██╗██╔════╝ ██╔════╝
+█████╗  ██║   ██║██████╔╝██║  ███╗█████╗  
+██╔══╝  ██║   ██║██╔══██╗██║   ██║██╔══╝  
+██║     ╚██████╔╝██║  ██║╚██████╔╝███████╗
+╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝</div>
           </a>
           
           <div class="typing-text sub-desc">Official installation script forge for the Zephyr development.</div>

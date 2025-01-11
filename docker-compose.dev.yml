@@ -1,0 +1,17 @@
+services:
+  installer-dev:
+    build: 
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - STATUS_INTERVAL=30000
+      - COPY_TIMEOUT=1000
+      - TOAST_DURATION=2000
+    command: bun run dev

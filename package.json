@@ -1,14 +1,12 @@
 {
 	"name": "zephyr-forge",
-	"module": "server.js",
 	"version": "1.0.0",
 	"description": "Official installation server and script forge for the Zephyr development environment.",
 	"type": "module",
 	"private": true,
 	"scripts": {
-		"start": "node server.js",
-		"dev": "nodemon server.js",
-		"lint": "eslint .",
+		"start": "bun ./src/server.js",
+		"dev": "bun --watch ./src/server.js",
 		"test": "jest"
 	},
 	"devDependencies": {
