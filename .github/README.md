@@ -5,6 +5,8 @@
   </a>
 
   <br>
+  <br>
+
   <a href="#about-"><kbd> <br> About <br> </kbd></a>&ensp;&ensp;
   <a href="#getting-started-"><kbd> <br> Getting Started <br> </kbd></a>&ensp;&ensp;
   <a href="https://github.com/parazeeknova/zephyr"><kbd> <br> Zephyr <br> </kbd></a>&ensp;&ensp;
@@ -14,16 +16,6 @@
 </div>
 
 <br>
-
-<div align="center">
-
-  ###### *<div align="left"><sub>// Forge Homepage</sub></div>*
-
-  <a href="https://forge.zephyyrr.in">
-    <img src="assets/forge.png" alt="Logo" width="90%">
-  </a>
-
-</div>
 
 ## About 🚀
 
@@ -63,6 +55,16 @@ irm https://forge.zephyyrr.in/install.ps1 | iex
 🚀 **One-Command Deployment**: Deploy your development environment with a single command, simplifying the process and reducing the potential for errors.
 
 💻 **Cross-Platform Support (Windows & Unix)**: Enjoy a seamless experience across different operating systems, with full support for both Windows and Unix-based systems.
+
+<div align="center">
+
+  ###### *<div align="left"><sub>// Forge Homepage - <a href="https://forge.zephyyrr.in">🔗 link</a></sub></div>*
+
+  <a href="https://forge.zephyyrr.in">
+    <img src="assets/forge.png" alt="Logo" width="90%">
+  </a>
+
+</div>
 
 ## Troubleshoot 🛠 
 
