@@ -13,6 +13,7 @@ import cors from 'cors';
 import os from 'node:os';
 import sqlite3 from 'sqlite3';
 import { open } from 'sqlite';
+import crypto from 'node:crypto';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -71,11 +72,20 @@ if (isDev) {
   });
 }
 
+app.use((req, res, next) => {
+  res.locals.nonce = crypto.randomBytes(16).toString('base64');
+  next();
+});
+
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "https://analytics-umami.zephyyrr.in"],
+      scriptSrc: [
+        "'self'",
+        "https://analytics-umami.zephyyrr.in",
+        (req, res) => `'nonce-${res.locals.nonce}'`
+      ],
       styleSrc: ["'self'", "'unsafe-inline'"],
       imgSrc: ["'self'", "data:", "https:"],
       connectSrc: [
@@ -661,7 +671,7 @@ app.get('/', (req, res) => {
 
         <div id="toast" class="toast"></div>
         <script src="/static/installer.js"></script>
-        <script defer src="https://analytics-umami.zephyyrr.in/script.js" data-website-id="577ed5ec-6d5d-4d7c-b523-7072a403b8b0"></script>
+        <script defer nonce="${res.locals.nonce}" src="https://analytics-umami.zephyyrr.in/script.js" data-website-id="577ed5ec-6d5d-4d7c-b523-7072a403b8b0"></script>
       </body>
     </html>
   `);
