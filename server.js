@@ -11,6 +11,47 @@ import { dirname, join } from 'node:path';
 import fs from 'node:fs';
 import cors from 'cors';
 import os from 'node:os';
+import sqlite3 from 'sqlite3';
+import { open } from 'sqlite';
+
+let db;
+async function setupDatabase() {
+  db = await open({
+    filename: 'stats.db',
+    driver: sqlite3.Database
+  });
+
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS stats (
+      name TEXT PRIMARY KEY,
+      value INTEGER DEFAULT 0
+    )
+  `);
+
+  await db.run(`
+    INSERT OR IGNORE INTO stats (name, value) VALUES ('unix_copy_count', 0)
+  `);
+  await db.run(`
+    INSERT OR IGNORE INTO stats (name, value) VALUES ('windows_copy_count', 0)
+  `);
+}
+
+setupDatabase().catch(console.error);
+
+const CONFIG = {
+  PORT: process.env.PORT || 3000,
+  NODE_ENV: process.env.NODE_ENV || 'development',
+  DB_PATH: process.env.DB_PATH || 'stats.db',
+  SITE_URL: process.env.SITE_URL || 'https://development.zephyyrr.in',
+  DOCS_URL: process.env.DOCS_URL || 'https://github.com/parazeeknova/zephyr',
+  UNIX_SCRIPT: process.env.UNIX_SCRIPT || 'install.sh',
+  WINDOWS_SCRIPT: process.env.WINDOWS_SCRIPT || 'install.ps1',
+  RATE_LIMIT: {
+    WINDOW_MS: Number.parseInt(process.env.RATE_LIMIT_WINDOW || '900000', 10),
+    MAX_REQUESTS: Number.parseInt(process.env.RATE_LIMIT_MAX || '50', 10)
+  },
+  CORS_ORIGIN: process.env.CORS_ORIGIN || '*'
+};
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -18,19 +59,6 @@ const __dirname = dirname(__filename);
 const app = express();
 const port = process.env.PORT || 3000;
 const isDev = process.env.NODE_ENV === 'development';
-
-if (isDev) {
-  console.log(`
-🔧 Running in Development Mode
-------------------------------------------
-🌐 Server: http://localhost:${port}
-📜 Scripts:
-   - Install Script (Unix): http://localhost:${port}/install.sh
-   - Install Script (Windows): http://localhost:${port}/install.ps1
-🏥 Health Check: http://localhost:${port}/health
-------------------------------------------
-  `);
-}
 
 if (isDev) {
   app.use((req, res, next) => {
@@ -46,14 +74,27 @@ app.use(helmet({
       scriptSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
       imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: [
+        "'self'",
+        isDev ? 'http://localhost:*' : CONFIG.SITE_URL
+      ],
     },
   },
+  crossOriginEmbedderPolicy: !isDev,
+  crossOriginOpenerPolicy: !isDev,
+  crossOriginResourcePolicy: !isDev
 }));
 
 const limiter = rateLimit({
-  windowMs: isDev ? 1 * 60 * 1000 : 15 * 60 * 1000,
-  max: isDev ? 100 : 50,
+  windowMs: isDev ? 60 * 1000 : CONFIG.RATE_LIMIT.WINDOW_MS,
+  max: isDev ? 100 : CONFIG.RATE_LIMIT.MAX_REQUESTS,
 });
+
+app.use(cors({
+  origin: CONFIG.CORS_ORIGIN,
+  methods: ['GET', 'POST'],
+  credentials: true
+}));
 
 app.use(limiter);
 app.use(compression());
@@ -83,30 +124,72 @@ app.get('/health', (req, res) => {
   });
 });
 
-app.get('/install.sh', (req, res) => {
-  res.sendFile(join(__dirname, 'scripts', 'install.sh'));
+app.get('/api/config', (req, res) => {
+  res.json({
+    API_BASE: '/api',
+    STATUS_INTERVAL: 30000,
+    COPY_TIMEOUT: 1000,
+    TOAST_DURATION: 2000
+  });
 });
 
-app.get('/install.ps1', (req, res) => {
-  res.sendFile(join(__dirname, 'scripts', 'install.ps1'));
+app.get(`/${CONFIG.UNIX_SCRIPT}`, (req, res) => {
+  res.sendFile(join(__dirname, 'scripts', CONFIG.UNIX_SCRIPT));
+});
+
+app.get(`/${CONFIG.WINDOWS_SCRIPT}`, (req, res) => {
+  res.sendFile(join(__dirname, 'scripts', CONFIG.WINDOWS_SCRIPT));
 });
 
 app.get('/api/status', async (req, res) => {
   try {
     const status = {
       status: 'operational',
+      environment: CONFIG.NODE_ENV,
+      version: process.env.npm_package_version || '1.0.0',
       uptime: process.uptime(),
       timestamp: new Date().toISOString(),
       memory: {
         total: os.totalmem(),
         free: os.freemem(),
-        used: os.totalmem() - os.freemem()
+        used: os.totalmem() - os.freemem(),
+        percentage: ((os.totalmem() - os.freemem()) / os.totalmem() * 100).toFixed(2)
       },
-      cpu: os.loadavg()[0]
+      cpu: {
+        load: os.loadavg(),
+        cores: os.cpus().length
+      }
     };
     res.json(status);
   } catch (error) {
-    res.status(500).json({ status: 'error', message: error.message });
+    console.error('Status check failed:', error);
+    res.status(500).json({ 
+      status: 'error', 
+      message: isDev ? error.message : 'Internal server error' 
+    });
+  }
+});
+
+app.post('/api/copy-count/:type', async (req, res) => {
+  const type = req.params.type === 'windows' ? 'windows_copy_count' : 'unix_copy_count';
+  try {
+    await db.run("UPDATE stats SET value = value + 1 WHERE name = ?", type);
+    const result = await db.get('SELECT value FROM stats WHERE name = ?', type);
+    res.json({ count: result.value });
+  } catch (error) {
+    console.error('Error updating copy count:', error);
+    res.status(500).json({ error: 'Failed to update copy count' });
+  }
+});
+
+app.get('/api/copy-count/:type', async (req, res) => {
+  const type = req.params.type === 'windows' ? 'windows_copy_count' : 'unix_copy_count';
+  try {
+    const result = await db.get('SELECT value FROM stats WHERE name = ?', type);
+    res.json({ count: result.value });
+  } catch (error) {
+    console.error('Error getting copy count:', error);
+    res.status(500).json({ error: 'Failed to get copy count' });
   }
 });
 
@@ -114,15 +197,24 @@ app.use('/static', express.static(join(__dirname, 'public')));
 
 app.get('/', (req, res) => {
   const envVars = {
-    SITE_URL: process.env.SITE_URL || 'https://development.zephyyrr.in',
-    DOCS_URL: process.env.DOCS_URL || 'https://github.com/parazeeknova/zephyr',
-    UNIX_SCRIPT: process.env.UNIX_SCRIPT || 'setup.sh',
-    WINDOWS_SCRIPT: process.env.WINDOWS_SCRIPT || 'setup.ps1'
+    SITE_URL: CONFIG.SITE_URL,
+    DOCS_URL: CONFIG.DOCS_URL,
+    UNIX_SCRIPT: CONFIG.UNIX_SCRIPT,
+    WINDOWS_SCRIPT: CONFIG.WINDOWS_SCRIPT,
+    API_BASE: '/api'
   };
 
   res.send(`
     <!DOCTYPE html>
-    <html>
+    <html lang="en">
+      <head>
+        <title>Zephyr Environment Setup</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta name="description" content="Official environment setup for Zephyr development">
+        <meta property="og:title" content="Zephyr Environment Setup">
+        <meta property="og:description" content="Configure your Zephyr development environment">
+        <meta property="og:url" content="${CONFIG.SITE_URL}">
       <head>
         <title>Zephyr Installer</title>
         <meta charset="UTF-8">
@@ -486,7 +578,27 @@ app.get('/', (req, res) => {
               right: 0.5rem;
             }
           }
+
+        .copy-wrapper {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+        }
+
+        .copy-count {
+          font-size: 0.75rem;
+          color: var(--dim);
+          opacity: 0.8;
+        }
         </style>
+        <script>
+          window.SERVER_CONFIG = {
+            API_BASE: '/api',
+            STATUS_INTERVAL: ${CONFIG.STATUS_INTERVAL || 30000},
+            COPY_TIMEOUT: ${CONFIG.COPY_TIMEOUT || 1000},
+            TOAST_DURATION: ${CONFIG.TOAST_DURATION || 2000}
+          };
+        </script>
       </head>
       <body>
         <div class="terminal">
@@ -494,7 +606,7 @@ app.get('/', (req, res) => {
           <span class="status-dot"></span>
           <span class="status-text">Checking status...</span>
         </div>
-          <a href="https://zephyr.yourdomain.com" class="logo-container" target="_blank">
+          <a href="https://development.zephyyrr.in" class="logo-container" target="_blank">
             <div class="logo">
 ███████╗███████╗██████╗ ██╗  ██╗██╗   ██╗██████╗ 
 ╚══███╔╝██╔════╝██╔══██╗██║  ██║╚██╗ ██╔╝██╔══██╗
@@ -518,7 +630,9 @@ app.get('/', (req, res) => {
               <span class="prompt">$</span>
               <div class="command-wrapper" data-command="unix">
                 <span class="command">curl -fsSL http://localhost:${port}/${envVars.UNIX_SCRIPT} | bash</span>
-                <button class="copy-button">copy</button>
+                <div class="copy-wrapper">
+                  <button class="copy-button">copy</button>
+                </div>
               </div>
             </div>
 
@@ -526,7 +640,9 @@ app.get('/', (req, res) => {
               <span class="prompt">></span>
               <div class="command-wrapper" data-command="windows">
                 <span class="command">irm http://localhost:${port}/${envVars.WINDOWS_SCRIPT} | iex</span>
-                <button class="copy-button">copy</button>
+                <div class="copy-wrapper">
+                  <button class="copy-button">copy</button>
+                </div>
               </div>
             </div>
 
@@ -548,16 +664,39 @@ app.get('/', (req, res) => {
   `);
 });
 
-app.listen(port, () => {
-  console.log(`
+app.listen(CONFIG.PORT, () => {
+  const message = isDev 
+    ? `
 =============================================================================
                     ZEPHYR INSTALLER (DEVELOPMENT MODE)
 =============================================================================
 
-🚀 Server running at: http://localhost:${port}
-🔧 Environment: ${process.env.NODE_ENV}
+🚀 Server running at: http://localhost:${CONFIG.PORT}
+🔧 Environment: ${CONFIG.NODE_ENV}
 📝 Logging: Enabled (${logFormat} format)
 🔒 Security: Development settings
 
-=============================================================================`);
+=============================================================================`
+    : `
+=============================================================================
+                    ZEPHYR INSTALLER (PRODUCTION MODE)
+=============================================================================
+
+✅ Server started successfully
+🔒 Security: Production settings enabled
+📝 Logging: Production mode (${logFormat})
+
+=============================================================================`;
+
+  console.log(message);
+});
+
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received. Shutting down gracefully...');
+  db?.close()
+    .then(() => {
+      console.log('Database connections closed.');
+      process.exit(0);
+    })
+    .catch(console.error);
 });
