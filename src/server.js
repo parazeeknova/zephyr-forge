@@ -213,16 +213,13 @@ app.get('/', (req, res) => {
     <html lang="en">
       <head>
         <title>Zephyr Forge</title>
+        <link rel="icon" href="./public/zephyr.svg" type="image/svg+xml">
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <meta name="description" content="Official environment setup for Zephyr development">
         <meta property="og:title" content="Zephyr Environment Setup">
         <meta property="og:description" content="Configure your Zephyr development environment">
         <meta property="og:url" content="${CONFIG.SITE_URL}">
-      <head>
-        <title>Zephyr Installer</title>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <style>
           :root {
             --bg: #0c0c0c;
@@ -595,6 +592,7 @@ app.get('/', (req, res) => {
           opacity: 0.8;
         }
         </style>
+        <script defer src="https://analytics-umami.zephyyrr.in/script.js" data-website-id="577ed5ec-6d5d-4d7c-b523-7072a403b8b0"></script>
         <script>
           window.SERVER_CONFIG = {
             API_BASE: '/api',
