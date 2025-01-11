@@ -10,7 +10,7 @@
   <a href="#about-"><kbd> <br> About <br> </kbd></a>&ensp;&ensp;
   <a href="#getting-started-"><kbd> <br> Getting Started <br> </kbd></a>&ensp;&ensp;
   <a href="https://github.com/parazeeknova/zephyr"><kbd> <br> Zephyr <br> </kbd></a>&ensp;&ensp;
-  <a href="#documentation-"><kbd> <br> Troubleshoot <br> </kbd></a>&ensp;&ensp;
+  <a href="https://github.com/parazeeknova/zephyr/issues"><kbd> <br> Troubleshoot <br> </kbd></a>&ensp;&ensp;
   <a href="https://github.com/parazeeknova/zephyr/blob/main/.github/CONTRIBUTING.md"><kbd> <br> Contribution <br> </kbd></a>
 
 </div>
@@ -71,11 +71,12 @@ irm https://forge.zephyyrr.in/install.ps1 | iex
 **Having trouble?** [Open an issue](https://github.com/parazeeknova/zephyr-forge/issues/new)
 
 <br>
-
 <br>
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/parazeeknova/nyxtext-zenith/f4ef877c1ac8c4a5b393a19a086bec2d379b3916/.github/assets/misc/catppuccin_cat.svg" alt="Catppuccino Cat">
+  <a href="https://development.zephyyrr.in">
+    <img src="https://raw.githubusercontent.com/parazeeknova/nyxtext-zenith/f4ef877c1ac8c4a5b393a19a086bec2d379b3916/.github/assets/misc/catppuccin_cat.svg" alt="Catppuccino Cat">
+  </a>
 </div>
 
 ##### *<div align="left"><sub>// Copyright © 2025 Parazeeknova</sub></div>*

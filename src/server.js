@@ -230,7 +230,7 @@ app.get('/', (req, res) => {
     <html lang="en">
       <head>
         <title>Zephyr Forge</title>
-        <link rel="icon" href="https://raw.githubusercontent.com/parazeeknova/zephyr-forge/d28d68ce175625644f365c9391c388cc9d07010a/src/public/zephyr.svg" type="image/svg+xml">
+        <link rel="icon" href="https://raw.githubusercontent.com/parazeeknova/zephyr-forge/d28d68ce175625644f365c9391c388cc9d07010a/src/public/forge.svg" type="image/svg+xml">
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <meta name="description" content="Official environment setup for Zephyr development">
