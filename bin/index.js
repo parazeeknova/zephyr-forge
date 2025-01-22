@@ -235,10 +235,50 @@ async function installZephyr(installDir, packageManager) {
 
         process.chdir(installDir);
 
-        const depsSpinner = createSpinner('Installing project dependencies...').start();
-        execSync(`${packageManager} install`, { stdio: 'ignore' });
-        await sleep(1000);
-        depsSpinner.success({ text: 'Dependencies installed successfully' });
+        console.log('\n📦 Installing project dependencies...\n');
+        console.log(chalk.yellow('This might take a few minutes. Please wait...\n'));
+        
+        try {
+            const outputLog = fs.createWriteStream('installation-output.log');
+            const errorLog = fs.createWriteStream('installation-error.log');
+            
+            const installProcess = execSync(`${packageManager} install`, { 
+                stdio: ['ignore', 'pipe', 'pipe'],
+                encoding: 'utf-8'
+            });
+            
+            console.log(chalk.blue('📋 Installation Logs:'));
+            console.log(chalk.gray('─'.repeat(50)));
+            console.log(installProcess);
+            console.log(chalk.gray('─'.repeat(50)));
+            
+            outputLog.end();
+            errorLog.end();
+            
+        } catch (error) {
+            console.error(chalk.red('\n❌ Dependency installation failed:'));
+            console.error(chalk.gray(error.message));
+            throw error;
+        }
+
+        console.clear();
+        console.log(boxen(chalk.green('\n🚀 Starting Zephyr\n'), { padding: 1 }));
+        console.log(chalk.yellow('Initializing the development environment...\n'));
+
+        try {
+            console.log(chalk.blue('📋 Startup Logs:'));
+            console.log(chalk.gray('─'.repeat(50)));
+            
+            const startProcess = execSync(`${packageManager} run start`, {
+                stdio: 'inherit',
+                encoding: 'utf-8'
+            });
+
+        } catch (error) {
+            console.error(chalk.red('\n❌ Project startup failed:'));
+            console.error(chalk.gray(error.message));
+            throw error;
+        }
 
         await showCompletionMenu(installDir, packageManager);
 
@@ -247,7 +287,20 @@ async function installZephyr(installDir, packageManager) {
         console.error(boxen(chalk.red('\n❌ Installation Failed!\n'), { padding: 1 }));
         console.error(chalk.yellow('Error Details:'));
         console.error(chalk.gray(error.message));
+        
+        if (fs.existsSync('installation-output.log')) {
+            console.log(chalk.yellow('\nInstallation Logs:'));
+            console.log(chalk.gray(fs.readFileSync('installation-output.log', 'utf-8')));
+        }
+        if (fs.existsSync('installation-error.log')) {
+            console.log(chalk.red('\nError Logs:'));
+            console.log(chalk.gray(fs.readFileSync('installation-error.log', 'utf-8')));
+        }
+        
         process.exit(1);
+    } finally {
+        fs.removeSync('installation-output.log');
+        fs.removeSync('installation-error.log');
     }
 }
 

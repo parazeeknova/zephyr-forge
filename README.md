@@ -1,7 +1,7 @@
 <div align="center">
 
   <a href="https://forge.zephyyrr.in">
-    <img src="./assets/forge-banner-vert.png" alt="Zephyr Logo" width="80%">
+    <img src="https://github.com/parazeeknova/zephyr-forge/blob/main/.github/assets/forge-banner-vert.png" alt="Zephyr Logo" width="80%">
   </a>
 
   <br>
@@ -61,7 +61,7 @@ irm https://forge.zephyyrr.in/install.ps1 | iex
   ###### *<div align="left"><sub>// Forge Homepage - <a href="https://forge.zephyyrr.in">🔗 link</a></sub></div>*
 
   <a href="https://forge.zephyyrr.in">
-    <img src="assets/forge.png" alt="Logo" width="90%">
+    <img src="https://github.com/parazeeknova/zephyr-forge/blob/main/.github/assets/forge.png" alt="Logo" width="90%">
   </a>
 
 </div>

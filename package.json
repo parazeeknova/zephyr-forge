@@ -16,6 +16,10 @@
 		"test:watch": "bun test --watch --pattern=\"^(?!.*installer\\.test\\.js).*\\.test\\.js$\"",
 		"test:coverage": "bun test --coverage --pattern=\"^(?!.*installer\\.test\\.js).*\\.test\\.js$\""
 	},
+	"publishConfig": {
+		"registry": "https://npm.pkg.github.com",
+		"access": "public"
+	},
 	"keywords": [
 		"zephyr",
 		"installer",
