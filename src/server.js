@@ -42,6 +42,9 @@ async function setupDatabase() {
   await db.run(`
     INSERT OR IGNORE INTO stats (name, value) VALUES ('windows_copy_count', 0)
   `);
+  await db.run(`
+  INSERT OR IGNORE INTO stats (name, value) VALUES ('npm_copy_count', 0)
+  `);
 }
 
 setupDatabase().catch(console.error);
@@ -192,7 +195,18 @@ app.get('/api/status', async (req, res) => {
 });
 
 app.post('/api/copy-count/:type', async (req, res) => {
-  const type = req.params.type === 'windows' ? 'windows_copy_count' : 'unix_copy_count';
+  const typeMap = {
+    'windows': 'windows_copy_count',
+    'unix': 'unix_copy_count',
+    'npm': 'npm_copy_count'
+  };
+  
+  const type = typeMap[req.params.type];
+  
+  if (!type) {
+    return res.status(400).json({ error: 'Invalid type' });
+  }
+
   try {
     await db.run("UPDATE stats SET value = value + 1 WHERE name = ?", type);
     const result = await db.get('SELECT value FROM stats WHERE name = ?', type);
@@ -204,7 +218,18 @@ app.post('/api/copy-count/:type', async (req, res) => {
 });
 
 app.get('/api/copy-count/:type', async (req, res) => {
-  const type = req.params.type === 'windows' ? 'windows_copy_count' : 'unix_copy_count';
+  const typeMap = {
+    'windows': 'windows_copy_count',
+    'unix': 'unix_copy_count',
+    'npm': 'npm_copy_count'
+  };
+  
+  const type = typeMap[req.params.type];
+  
+  if (!type) {
+    return res.status(400).json({ error: 'Invalid type' });
+  }
+
   try {
     const result = await db.get('SELECT value FROM stats WHERE name = ?', type);
     res.json({ count: result.value });
@@ -357,9 +382,9 @@ app.get('/', (req, res) => {
             padding: 0.3rem 0.4rem;
             border-radius: 3px;
             flex-grow: 1;
-            min-width: 380px;
-            cursor: pointer;  /* Added */
-            transition: all 0.2s ease;  /* Added */
+            min-width: 520px;
+            cursor: pointer;
+            transition: all 0.2s ease;
           }
 
           .command-wrapper:hover {
@@ -371,10 +396,10 @@ app.get('/', (req, res) => {
           .command {
             font-size: 0.75rem;
             user-select: none;
-            cursor: pointer;  /* Added */
-            position: relative;  /* Added */
-            padding-right: 1rem;  /* Added */
-            transition: color 0.2s ease;  /* Added */
+            cursor: pointer;
+            position: relative;
+            padding-right: 1rem;
+            transition: color 0.2s ease;
           }
 
           .command:hover {
@@ -707,6 +732,16 @@ app.get('/', (req, res) => {
           <div class="typing-text sub-desc">Official installation script forge for the Zephyr development.</div>
           
           <div class="commands">
+            <div class="command-line">
+              <span class="prompt">!</span>
+              <div class="command-wrapper" data-command="npm">
+                <span class="command">npx @parazeeknova/zephyr-forge init</span>
+                <div class="copy-wrapper">
+                  <button class="copy-button">copy</button>
+                </div>
+              </div>
+            </div>
+
             <div class="command-line">
               <span class="prompt">$</span>
               <div class="command-wrapper" data-command="unix">

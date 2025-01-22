@@ -87,7 +87,7 @@ const CONFIG = window.SERVER_CONFIG || {
   }
   
   async function initializeCopyCount() {
-    const types = ['unix', 'windows'];
+    const types = ['unix', 'windows', 'npm'];
     
     for (const type of types) {
       try {

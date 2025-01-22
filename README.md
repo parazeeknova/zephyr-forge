@@ -26,13 +26,18 @@ Zephyr Forge is a powerful utility designed to streamline the setup process for 
 <div align="center">
 
 ###### *<div align="center"><sub>With NPM</sub></div>*
+
 ```bash
+# Using NPM
 npx @parazeeknova/zephyr-forge init
-# or
+
+# Using PNPM
 pnpm dlx @parazeeknova/zephyr-forge init
-# or
-yarn create @parazeeknova/zephyr-forge init
-# or
+
+# Using Yarn
+yarn dlx @parazeeknova/zephyr-forge init
+
+# Using Bun
 bunx @parazeeknova/zephyr-forge init
 ```
 
