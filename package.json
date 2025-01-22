@@ -1,5 +1,5 @@
 {
-	"name": "zephyr-forge",
+	"name": "@parazeeknova/zephyr-forge",
 	"version": "1.0.1",
 	"description": "Official installation server and script forge for the Zephyr development environment.",
 	"type": "module",
