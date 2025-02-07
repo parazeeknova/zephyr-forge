@@ -16,8 +16,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -36,14 +34,29 @@ jobs:
           cp package.json dist/
           cp README.md dist/
           
-          # Update dist/package.json
+          # Update dist/package.json for NPM
           cd dist
-          node -e "const pkg = require('./package.json'); delete pkg.devDependencies; delete pkg.scripts; pkg.publishConfig.registry = 'https://registry.npmjs.org/'; require('fs').writeFileSync('package.json', JSON.stringify(pkg, null, 2));"
+          node -e "
+            const pkg = require('./package.json');
+            delete pkg.devDependencies;
+            delete pkg.scripts;
+            pkg.publishConfig = {
+              registry: 'https://registry.npmjs.org/',
+              access: 'public'
+            };
+            require('fs').writeFileSync('package.json', JSON.stringify(pkg, null, 2));
+          "
+
+      - name: Setup .npmrc for publishing
+        run: |
+          cd dist
+          echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" > .npmrc
+          echo "registry=https://registry.npmjs.org/" >> .npmrc
+          echo "always-auth=true" >> .npmrc
 
       - name: Publish to NPM
         run: |
           cd dist
-          echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" > .npmrc
           npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
