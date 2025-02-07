@@ -22,7 +22,7 @@ jobs:
           scope: '@parazeeknova'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Prepare and publish package
         run: |
@@ -34,11 +34,6 @@ jobs:
           
           # Modify package.json for GitHub Packages
           cd dist
-          
-          # Save original package.json
-          cp package.json package.json.tmp
-          
-          # Update package.json for GitHub Packages
           node -e "
             const pkg = require('./package.json');
             pkg.name = '@parazeeknova/zephyr-forge';
@@ -51,10 +46,7 @@ jobs:
             require('fs').writeFileSync('package.json', JSON.stringify(pkg, null, 2));
           "
           
-          # Publish package
+          # Publish to GitHub Packages
           npm publish
-          
-          # Restore original package.json
-          mv package.json.tmp package.json
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

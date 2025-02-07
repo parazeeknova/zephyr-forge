@@ -26,7 +26,7 @@ jobs:
           registry-url: 'https://registry.npmjs.org/'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Prepare package for publishing
         run: |
@@ -38,7 +38,7 @@ jobs:
           
           # Update dist/package.json
           cd dist
-          node -e "const pkg = require('./package.json'); delete pkg.devDependencies; delete pkg.scripts; require('fs').writeFileSync('package.json', JSON.stringify(pkg, null, 2));"
+          node -e "const pkg = require('./package.json'); delete pkg.devDependencies; delete pkg.scripts; pkg.publishConfig.registry = 'https://registry.npmjs.org/'; require('fs').writeFileSync('package.json', JSON.stringify(pkg, null, 2));"
 
       - name: Publish to NPM
         env:
