@@ -37,14 +37,11 @@ jobs:
           # Setup authentication for GitHub Packages
           echo "@parazeeknova:registry=https://npm.pkg.github.com/" > .npmrc
           echo "//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}" >> .npmrc
-          echo "always-auth=true" >> .npmrc
           
-          # Verify the package.json is correct for GitHub Packages
+          # Modify package.json for GitHub Packages
           node -e "
             const pkg = require('./package.json');
-            if (!pkg.name.startsWith('@parazeeknova/')) {
-              pkg.name = '@parazeeknova/zephyr-forge';
-            }
+            pkg.name = '@parazeeknova/zephyr-forge';  // Scoped name for GitHub
             delete pkg.devDependencies;
             delete pkg.scripts;
             pkg.publishConfig = {
@@ -53,10 +50,6 @@ jobs:
             };
             require('fs').writeFileSync('package.json', JSON.stringify(pkg, null, 2));
           "
-          
-          # Show the final package.json for debugging
-          echo "Final package.json contents:"
-          cat package.json
           
           # Publish to GitHub Packages
           npm publish --access public

@@ -1,4 +1,4 @@
-name: Release
+name: Release to NPM
 
 on:
   push:
@@ -40,6 +40,7 @@ jobs:
             const pkg = require('./package.json');
             delete pkg.devDependencies;
             delete pkg.scripts;
+            pkg.name = 'zephyr-forge';  // Unscoped name for npm
             pkg.publishConfig = {
               registry: 'https://registry.npmjs.org/',
               access: 'public'
@@ -52,7 +53,6 @@ jobs:
           cd dist
           echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" > .npmrc
           echo "registry=https://registry.npmjs.org/" >> .npmrc
-          echo "always-auth=true" >> .npmrc
 
       - name: Publish to NPM
         run: |
