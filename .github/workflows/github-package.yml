@@ -26,13 +26,15 @@ jobs:
 
       - name: Prepare and publish package
         run: |
-          # Create dist directory and copy files
           mkdir -p dist/bin
           cp -r bin/* dist/bin/
           cp package.json dist/
           cp README.md dist/
           
           cd dist
+          
+          # Get version from main package.json
+          VERSION=$(node -p "require('./package.json').version")
           
           # Setup authentication for GitHub Packages
           echo "@parazeeknova:registry=https://npm.pkg.github.com/" > .npmrc
@@ -41,7 +43,7 @@ jobs:
           # Modify package.json for GitHub Packages
           node -e "
             const pkg = require('./package.json');
-            pkg.name = '@parazeeknova/zephyr-forge';  // Scoped name for GitHub
+            pkg.name = '@parazeeknova/zephyr-forge';
             delete pkg.devDependencies;
             delete pkg.scripts;
             pkg.publishConfig = {
@@ -51,7 +53,6 @@ jobs:
             require('fs').writeFileSync('package.json', JSON.stringify(pkg, null, 2));
           "
           
-          # Publish to GitHub Packages
           npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

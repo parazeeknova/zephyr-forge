@@ -1,4 +1,4 @@
-name: Release to NPM
+name: Release
 
 on:
   push:
@@ -16,6 +16,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -26,21 +28,44 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Configure Git
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+
+      - name: Bump version
+        run: |
+          # Get the current version
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          
+          # Split version into parts
+          IFS='.' read -r -a VERSION_PARTS <<< "$CURRENT_VERSION"
+          
+          # Increment patch version
+          NEW_PATCH=$((VERSION_PARTS[2] + 1))
+          NEW_VERSION="${VERSION_PARTS[0]}.${VERSION_PARTS[1]}.$NEW_PATCH"
+          
+          # Update package.json
+          npm version $NEW_VERSION --no-git-tag-version
+          
+          # Commit and push changes
+          git add package.json
+          git commit -m "chore: bump version to $NEW_VERSION [skip ci]"
+          git push
+
       - name: Prepare package for publishing
         run: |
-          # Copy necessary files to dist directory
           mkdir -p dist/bin
           cp -r bin/* dist/bin/
           cp package.json dist/
           cp README.md dist/
           
-          # Update dist/package.json for NPM
           cd dist
           node -e "
             const pkg = require('./package.json');
             delete pkg.devDependencies;
             delete pkg.scripts;
-            pkg.name = 'zephyr-forge';  // Unscoped name for npm
+            pkg.name = 'zephyr-forge';
             pkg.publishConfig = {
               registry: 'https://registry.npmjs.org/',
               access: 'public'
