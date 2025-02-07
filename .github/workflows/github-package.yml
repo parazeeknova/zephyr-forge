@@ -32,8 +32,13 @@ jobs:
           cp package.json dist/
           cp README.md dist/
           
-          # Modify package.json for GitHub Packages
           cd dist
+          
+          # Create .npmrc for GitHub Packages
+          echo "@parazeeknova:registry=https://npm.pkg.github.com" > .npmrc
+          echo "//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}" >> .npmrc
+          
+          # Modify package.json for GitHub Packages
           node -e "
             const pkg = require('./package.json');
             pkg.name = '@parazeeknova/zephyr-forge';

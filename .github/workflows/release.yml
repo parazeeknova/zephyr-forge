@@ -41,8 +41,9 @@ jobs:
           node -e "const pkg = require('./package.json'); delete pkg.devDependencies; delete pkg.scripts; pkg.publishConfig.registry = 'https://registry.npmjs.org/'; require('fs').writeFileSync('package.json', JSON.stringify(pkg, null, 2));"
 
       - name: Publish to NPM
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           cd dist
+          echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" > .npmrc
           npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
