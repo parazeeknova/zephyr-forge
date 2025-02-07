@@ -1,6 +1,6 @@
 {
 	"name": "zephyr-forge",
-	"version": "1.0.3",
+	"version": "1.0.4",
 	"description": "Official installation server and script forge for the Zephyr development environment.",
 	"type": "module",
 	"bin": {
