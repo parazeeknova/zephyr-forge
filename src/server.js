@@ -3,9 +3,52 @@ import { Hono } from 'hono';
 import { serveStatic } from '@hono/node-server/serve-static';
 import { logger } from 'hono/logger';
 import { cors } from 'hono/cors';
+import { Database } from 'bun:sqlite';
+import os from 'node:os';
 import { env } from './env.js';
 
 const app = new Hono();
+const PORT = Number.parseInt(env.PORT || '3000');
+const isDev = env.NODE_ENV === 'development';
+
+const DB_PATH = isDev ? './stats.db' : '/app/data/stats.db';
+
+let db;
+
+try {
+  db = new Database(DB_PATH);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS copy_stats (
+      type TEXT PRIMARY KEY,
+      count INTEGER DEFAULT 0
+    )
+  `);
+
+  db.run('INSERT OR IGNORE INTO copy_stats (type, count) VALUES (?, 0)', ['npm']);
+
+  console.log('Database initialized successfully at:', DB_PATH);
+} catch (error) {
+  console.error('Database initialization error:', error);
+  process.exit(1);
+}
+
+if (!isDev) {
+  try {
+    await Bun.write('/app/data/.keep', '');
+  } catch (error) {
+    console.error('Failed to create data directory:', error);
+  }
+}
+
+db.run(`
+  CREATE TABLE IF NOT EXISTS copy_stats (
+    type TEXT PRIMARY KEY,
+    count INTEGER DEFAULT 0
+  )
+`);
+
+db.run('INSERT OR IGNORE INTO copy_stats (type, count) VALUES (?, 0)', ['npm']);
 
 app.use('*', logger());
 app.use(
@@ -16,26 +59,54 @@ app.use(
   }),
 );
 
-// Serve static files from public directory
 app.use('/*', serveStatic({ root: './dist' }));
 
-// API routes
-app.get('/health', (c) => {
-  return c.json({
-    status: 'healthy',
+app.get('/api/status', (c) => {
+  const status = {
+    status: 'operational',
     environment: env.NODE_ENV,
+    version: process.env.npm_package_version || '1.0.0',
+    uptime: process.uptime(),
     timestamp: new Date().toISOString(),
-  });
+    system: {
+      memory: {
+        total: os.totalmem(),
+        free: os.freemem(),
+        used: os.totalmem() - os.freemem(),
+        percentage: (((os.totalmem() - os.freemem()) / os.totalmem()) * 100).toFixed(2),
+      },
+      cpu: {
+        load: os.loadavg(),
+        cores: os.cpus().length,
+      },
+    },
+  };
+  return c.json(status);
 });
 
-let copyCount = 0;
+app.get('/api/copy-count', async (c) => {
+  try {
+    const result = db.prepare('SELECT count FROM copy_stats WHERE type = ?').get('npm');
+    return c.json({ count: result?.count || 0 });
+  } catch (error) {
+    console.error('Error getting copy count:', error);
+    return c.json({ error: 'Failed to get copy count' }, 500);
+  }
+});
 
 app.post('/api/copy-count', async (c) => {
-  copyCount++;
-  return c.json({ count: copyCount });
+  try {
+    db.prepare('UPDATE copy_stats SET count = count + 1 WHERE type = ?').run('npm');
+
+    const result = db.prepare('SELECT count FROM copy_stats WHERE type = ?').get('npm');
+
+    return c.json({ count: result?.count || 0 });
+  } catch (error) {
+    console.error('Error updating copy count:', error);
+    return c.json({ error: 'Failed to update copy count' }, 500);
+  }
 });
 
-// Error handling
 app.onError((err, c) => {
   console.error(`[${new Date().toISOString()}] Error:`, err);
   return c.json(
@@ -47,11 +118,10 @@ app.onError((err, c) => {
   );
 });
 
-// Start server
 serve(
   {
     fetch: app.fetch,
-    port: Number.parseInt(env.PORT),
+    port: PORT,
   },
   (info) => {
     console.log(`
@@ -64,15 +134,16 @@ serve(
 📝 Logging: Enabled
 🔑 CORS: Enabled
 🛠  API Base: /api
+💾 Database: Connected
 
 =============================================================================
   `);
   },
 );
 
-// Graceful shutdown
 const shutdown = () => {
   console.log('\nShutting down gracefully...');
+  db.close();
   process.exit(0);
 };
 

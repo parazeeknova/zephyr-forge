@@ -1,0 +1,26 @@
+.command-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 0.3rem 0.4rem;
+  border-radius: 3px;
+  flex-grow: 1;
+  min-width: 520px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.1);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  }
+
+  &.copied {
+    background: rgba(78, 201, 176, 0.1);
+    
+    .command {
+      color: var(--accent);
+    }
+  }
+}

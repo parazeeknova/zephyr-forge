@@ -1,0 +1,23 @@
+@use 'command-wrapper';
+@use 'command';
+@use 'copy';
+
+.commands {
+  display: inline-block;
+  text-align: left;
+  width: 100%;
+  max-width: 550px;
+
+  .command-line {
+    margin: 0.4rem 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .prompt {
+    color: var(--prompt);
+    font-size: 0.85rem;
+    min-width: 1.5rem;
+  }
+}

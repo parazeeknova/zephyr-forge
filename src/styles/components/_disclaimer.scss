@@ -1,0 +1,40 @@
+.disclaimer {
+  margin-top: 2rem;
+  text-align: left;
+  font-size: 0.8rem;
+  color: var(--dim);
+  max-width: 550px;
+  margin-left: auto;
+  margin-right: auto;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 4px;
+
+  &-title {
+    color: var(--prompt);
+    margin-bottom: 0.5rem;
+    font-weight: bold;
+  }
+
+  a {
+    color: var(--link);
+    text-decoration: none;
+    position: relative;
+    padding-bottom: 2px;
+
+    &::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 0;
+      height: 1px;
+      background: var(--link);
+      transition: width 0.2s ease;
+    }
+
+    &:hover::after {
+      width: 100%;
+    }
+  }
+} 

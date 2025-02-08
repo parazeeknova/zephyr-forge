@@ -1,0 +1,21 @@
+.typing-text {
+  overflow: hidden;
+  white-space: nowrap;
+  margin: 0 auto;
+  text-align: center;
+  color: var(--dim);
+
+  &.main-desc {
+    font-size: 0.8rem;
+    opacity: 0;
+    animation: typing 2s steps(40, end) forwards;
+  }
+
+  &.sub-desc {
+    font-size: 0.75rem;
+    opacity: 0;
+    animation: typing 2s steps(40, end) forwards;
+    animation-delay: 2s;
+    margin-bottom: 2rem;
+  }
+} 

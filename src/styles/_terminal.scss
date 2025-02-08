@@ -1,0 +1,12 @@
+@use 'variables';
+@use 'components/logo';
+@use 'components/typing';
+@use 'components/commands';
+
+.terminal {
+  text-align: center;
+  width: 100%;
+  max-width: 800px;
+  padding: 2rem;
+  position: relative;
+}

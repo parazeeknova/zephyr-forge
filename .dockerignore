@@ -36,6 +36,9 @@ tests
 *.test.js
 *.spec.js
 
+# Database
+*.db
+
 # Temporary files
 *.swp
 *.swo
