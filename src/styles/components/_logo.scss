@@ -1,0 +1,31 @@
+.logo-container {
+  position: relative;
+  cursor: pointer;
+  display: inline-block;
+  margin-bottom: 1.5rem;
+  text-decoration: none;
+  text-align: center;
+
+  .logo, .logo-hover {
+    color: var(--text);
+    white-space: pre;
+    font-size: 0.8rem;
+    line-height: 1.2;
+    transition: opacity 0.3s ease-in-out;
+    display: inline-block;
+    text-align: center;
+  }
+
+  .logo-hover {
+    position: absolute;
+    top: 0;
+    left: 0;
+    opacity: 0;
+    color: var(--accent);
+  }
+
+  &:hover {
+    .logo { opacity: 0; }
+    .logo-hover { opacity: 1; }
+  }
+}

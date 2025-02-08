@@ -1,0 +1,37 @@
+.status-indicator {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--dim);
+  padding: 0.5rem 0.75rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 3px;
+  transition: all 0.3s ease;
+  cursor: help;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.1);
+  }
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--dim);
+  transition: all 0.3s ease;
+
+  &.operational {
+    background: var(--prompt);
+    box-shadow: 0 0 8px rgba(78, 201, 176, 0.5);
+  }
+
+  &.error {
+    background: #f44747;
+    box-shadow: 0 0 8px rgba(244, 71, 71, 0.5);
+  }
+} 

@@ -4,7 +4,7 @@
   "description": "Official installation server and script forge for the Zephyr development environment.",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "concurrently \"vite\" \"bun run src/server.js\"",
     "build": "vite build",
     "start": "node src/server.js",
     "preview": "vite preview",
@@ -29,6 +29,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
+    "concurrently": "^9.1.2",
     "nodemon": "^3.1.9",
     "vite": "^6.1.0"
   }

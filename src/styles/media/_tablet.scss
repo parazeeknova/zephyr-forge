@@ -1,0 +1,39 @@
+.terminal {
+  padding: 1rem;
+}
+
+.logo, .logo-hover {
+  font-size: 0.6rem;
+}
+
+.commands {
+  max-width: 90%;
+}
+
+.command-wrapper {
+  min-width: unset;
+}
+
+.disclaimer {
+  margin: 2rem 0.5rem;
+  font-size: 0.75rem;
+}
+
+.command {
+  font-size: 0.7rem;
+}
+
+.copy-button {
+  font-size: 0.7rem;
+}
+
+.typing-text {
+  padding: 0 1rem;
+}
+
+.status-indicator {
+  top: 0.5rem;
+  right: 0.5rem;
+  font-size: 0.7rem;
+  padding: 0.4rem 0.6rem;
+} 

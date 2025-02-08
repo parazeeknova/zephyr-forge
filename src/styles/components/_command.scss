@@ -1,0 +1,22 @@
+.command {
+  font-size: 0.75rem;
+  user-select: none;
+  cursor: pointer;
+  position: relative;
+  padding-right: 1rem;
+  transition: color 0.2s ease;
+
+  &:hover {
+    color: var(--accent);
+  }
+
+  &::after {
+    position: absolute;
+    right: -1.5rem;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.8rem;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+}

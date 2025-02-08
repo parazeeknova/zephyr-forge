@@ -1,0 +1,49 @@
+.copy-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.copy-button {
+  background: none;
+  border: none;
+  color: var(--dim);
+  font-family: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+  padding: 0.2rem 0.4rem;
+  transition: all 0.2s;
+  margin-left: 1rem;
+  white-space: nowrap;
+  position: relative;
+
+  &:hover {
+    color: var(--text);
+  }
+
+  &.copied {
+    animation: pulse 0.5s ease-in-out;
+  }
+
+  &::after {
+    content: attr(data-count);
+    position: absolute;
+    top: -1.5rem;
+    right: 0;
+    font-size: 0.7rem;
+    color: var(--dim);
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+
+  &:hover::after {
+    opacity: 1;
+  }
+}
+
+.copy-count {
+  font-size: 0.75rem;
+  color: var(--dim);
+  opacity: 0.8;
+} 

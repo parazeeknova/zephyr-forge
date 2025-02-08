@@ -1,0 +1,10 @@
+@use "sass:meta";
+@use 'variables';
+
+@media (max-width: 768px) {
+  @include meta.load-css('media/tablet');
+}
+
+@media (max-width: 480px) {
+  @include meta.load-css('media/mobile');
+} 
