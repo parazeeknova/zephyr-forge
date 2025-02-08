@@ -9,7 +9,13 @@
     "start": "node src/server.js",
     "preview": "vite preview",
     "lint": "biome lint .",
-    "format": "biome format . --write"
+    "format": "biome format . --write",
+    "docker:build": "docker build -t zephyr-forge .",
+    "docker:run": "docker run -p 3000:3000 zephyr-forge",
+    "docker:compose": "docker-compose up -d",
+    "docker:compose:build": "docker-compose up -d --build",
+    "docker:logs": "docker-compose logs -f",
+    "docker:stop": "docker-compose down"
   },
   "author": "parazeeknova",
   "license": "AGPL-3.0",
