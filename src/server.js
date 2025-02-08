@@ -11,6 +11,44 @@ const app = new Hono();
 const PORT = Number.parseInt(env.PORT || '3000');
 const isDev = env.NODE_ENV === 'development';
 
+app.use('*', async (c, next) => {
+  c.req.raw.headers['x-forwarded-proto'] = 'https';
+  return await next();
+});
+
+app.use(
+  '*',
+  cors({
+    origin: ['http://localhost:3000', 'http://localhost:3456', 'https://forge.zephyyrr.in'],
+    allowMethods: ['GET', 'POST', 'OPTIONS'],
+    allowHeaders: ['Content-Type', 'Authorization'],
+    credentials: true,
+  }),
+);
+
+app.use('*', logger());
+
+app.use(
+  '/*',
+  serveStatic({
+    root: './dist',
+    rewriteRequestPath: (path) => {
+      if (path === '/') return '/index.html';
+      return path;
+    },
+  }),
+);
+
+app.get('*', async (c) => {
+  try {
+    const html = await Bun.file('./dist/index.html').text();
+    return c.html(html);
+  } catch (error) {
+    console.error('Error serving index.html:', error);
+    return c.text('Internal Server Error', 500);
+  }
+});
+
 const DB_PATH = isDev ? './stats.db' : '/app/data/stats.db';
 
 let db;

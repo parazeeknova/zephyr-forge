@@ -68,9 +68,9 @@ document.addEventListener('DOMContentLoaded', () => {
       await navigator.clipboard.writeText(command.textContent);
       showToast('Command copied to clipboard!');
 
-      const response = await fetch('/api/copy-count', {
-        method: 'POST',
-      });
+      const API_BASE = process.env.NODE_ENV === 'production' ? 'https://forge.zephyyrr.in' : '';
+
+      const response = await fetch(`${API_BASE}/api/status`);
       const data = await response.json();
 
       if (data.count) {
