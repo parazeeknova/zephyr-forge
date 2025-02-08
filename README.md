@@ -33,7 +33,7 @@ npx @parazeeknova/zephyr-forge init
 npx @parazeeknova/zephyr-forge@latest init
 ```
 
-###### *<div align="center"><sub>Linux & MacOS</sub></div>*
+<!-- ###### *<div align="center"><sub>Linux & MacOS</sub></div>*
 
 ```bash
 curl -fsSL https://forge.zephyyrr.in/install.sh | bash
@@ -43,7 +43,7 @@ curl -fsSL https://forge.zephyyrr.in/install.sh | bash
 
 ```powershell
 irm https://forge.zephyyrr.in/install.ps1 | iex
-```
+``` -->
 
 </div>
 
