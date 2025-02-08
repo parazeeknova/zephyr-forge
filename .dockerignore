@@ -1,0 +1,42 @@
+# Version control
+.git
+.gitignore
+
+# Dependencies
+node_modules
+bun.lockb
+
+# Environment
+.env
+.env.*
+
+# Development
+.vscode
+.idea
+*.log
+logs
+*.md
+LICENSE
+docker-compose*
+Dockerfile*
+.dockerignore
+
+# Build output
+dist
+build
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test files
+__tests__
+test
+tests
+*.test.js
+*.spec.js
+
+# Temporary files
+*.swp
+*.swo
+*~

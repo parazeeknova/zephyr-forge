@@ -1,0 +1,23 @@
+services:
+  zephyr-forge:
+    build: .
+    container_name: zephyr-forge
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - SITE_URL=https://forge.zephyyrr.in
+      - DOCS_URL=https://github.com/parazeeknova/zephyr
+    volumes:
+      - zephyr-data:/app/data
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+
+volumes:
+  zephyr-data:
