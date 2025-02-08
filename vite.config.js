@@ -4,10 +4,6 @@ import { resolve } from 'node:path';
 export default defineConfig({
   root: './src',
   publicDir: 'public',
-  build: {
-    outDir: '../dist',
-    emptyOutDir: true,
-  },
   server: {
     proxy: {
       '/api': {
@@ -16,6 +12,12 @@ export default defineConfig({
         secure: false,
       },
     },
+  },
+  build: {
+    outDir: 'dist',
+    assetsDir: 'assets',
+    emptyOutDir: true,
+    sourcemap: false,
   },
   resolve: {
     alias: {

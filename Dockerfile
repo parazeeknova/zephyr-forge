@@ -15,7 +15,7 @@ WORKDIR /app
 
 RUN apt-get update && apt-get install -y sqlite3 curl && \
     rm -rf /var/lib/apt/lists/* && \
-    mkdir -p /app/data && \
+    mkdir -p /app/data /app/dist && \
     chown -R 1000:1000 /app && \
     chmod -R 755 /app && \
     chmod 777 /app/data
