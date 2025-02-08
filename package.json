@@ -1,80 +1,29 @@
 {
-	"name": "zephyr-forge",
-	"version": "1.0.4",
-	"description": "Official installation server and script forge for the Zephyr development environment.",
-	"type": "module",
-	"bin": {
-		"zephyrforge": "bin/cli.js"
-	},
-	"files": [
-		"bin/"
-	],
-	"scripts": {
-		"start": "bun ./src/server.js",
-		"publish-all": "npm publish --access public && npm publish --access public --registry https://npm.pkg.github.com",
-		"dev": "bun --watch ./src/server.js",
-		"test": "bun test --pattern=\"^(?!.*installer\\.test\\.js).*\\.test\\.js$\"",
-		"test:watch": "bun test --watch --pattern=\"^(?!.*installer\\.test\\.js).*\\.test\\.js$\"",
-		"test:coverage": "bun test --coverage --pattern=\"^(?!.*installer\\.test\\.js).*\\.test\\.js$\""
-	},
-	"publishConfig": {
-		"access": "public"
-	},
-	"keywords": [
-		"zephyr",
-		"installer",
-		"cli",
-		"development-environment"
-	],
-	"author": "parazeeknova",
-	"license": "AGPL-3.0",
-	"engines": {
-		"node": ">=18.0.0"
-	},
-	"devDependencies": {
-		"@babel/core": "^7.26.0",
-		"@babel/preset-env": "^7.26.0",
-		"@testing-library/jest-dom": "^6.6.3",
-		"@types/bun": "latest",
-		"@types/jest": "^29.5.14",
-		"babel-jest": "^29.7.0",
-		"eslint": "^9.18.0",
-		"est": "^0.2.1-alpha",
-		"identity-obj-proxy": "^3.0.0",
-		"jest": "^29.7.0",
-		"jest-environment-jsdom": "^29.7.0",
-		"nodemon": "^3.1.9",
-		"supertest": "^7.0.0",
-		"ts-jest": "^29.2.5"
-	},
-	"peerDependencies": {
-		"typescript": "^5.7.3"
-	},
-	"dependencies": {
-		"boxen": "^8.0.1",
-		"chalk": "^5.4.1",
-		"compression": "^1.7.5",
-		"cors": "^2.8.5",
-		"dotenv": "^16.4.7",
-		"express": "^4.21.2",
-		"express-rate-limit": "^7.5.0",
-		"figlet": "^1.8.0",
-		"fs-extra": "^11.3.0",
-		"gradient-string": "^3.0.0",
-		"helmet": "^8.0.0",
-		"inquirer": "^12.3.2",
-		"morgan": "^1.10.0",
-		"nanospinner": "^1.2.2",
-		"ora": "^7.0.1",
-		"sqlite": "^5.1.1",
-		"sqlite3": "^5.1.7"
-	},
-	"repository": {
-		"type": "git",
-		"url": "git+https://github.com/parazeeknova/zephyr-forge.git"
-	},
-	"bugs": {
-		"url": "https://github.com/parazeeknova/zephyr/issues"
-	},
-	"homepage": "https://development.zephyyrr.in"
+  "name": "zephyr-forge",
+  "version": "1.0.0",
+  "description": "Official installation server and script forge for the Zephyr development environment.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "start": "node src/server.js",
+    "preview": "vite preview",
+    "lint": "biome lint .",
+    "format": "biome format . --write"
+  },
+  "author": "parazeeknova",
+  "license": "AGPL-3.0",
+  "dependencies": {
+    "@hono/node-server": "^1.13.8",
+    "@t3-oss/env-core": "^0.12.0",
+    "dotenv": "^16.4.7",
+    "hono": "^4.7.0",
+    "sass": "^1.84.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "nodemon": "^3.1.9",
+    "vite": "^6.1.0"
+  }
 }
