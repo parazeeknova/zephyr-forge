@@ -1,6 +1,6 @@
 {
   "name": "zephyr-forge",
-  "version": "1.0.0",
+  "version": "1.0.4",
   "description": "Official installation server and script forge for the Zephyr development environment.",
   "author": "parazeeknova",
   "license": "AGPL-3.0",
