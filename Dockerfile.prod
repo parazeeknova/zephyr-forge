@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y \
     sqlite3 \
     curl \
     && rm -rf /var/lib/apt/lists/* \
-    && mkdir -p /app/data \
+    && mkdir -p /app/data /app/dist \
     && chown -R 1000:1000 /app \
     && chmod -R 755 /app \
     && chmod 777 /app/data
@@ -39,4 +39,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 
 EXPOSE 3456
 
-CMD ["sh", "-c", "PORT=3456 HOST=0.0.0.0 bun server.js"]
+CMD ["bun", "server.js"]

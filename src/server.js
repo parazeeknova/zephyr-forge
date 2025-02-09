@@ -26,6 +26,14 @@ app.use(
   }),
 );
 
+app.use(
+  '/assets/*',
+  serveStatic({
+    root: isDev ? './dist' : '/app/dist',
+    rewriteRequestPath: (path) => path,
+  }),
+);
+
 app.get('/api/status', (c) => {
   const status = {
     status: 'operational',
@@ -138,6 +146,16 @@ try {
   process.exit(1);
 }
 
+try {
+  const indexPath = isDev ? './dist/index.html' : '/app/dist/index.html';
+  await Bun.file(indexPath).exists();
+  console.log('Verified index.html exists at:', indexPath);
+} catch (error) {
+  console.error('Critical: index.html not found at expected location:', error);
+  console.log('Current directory contents:', await Bun.spawn(['ls', '-la']).text());
+  process.exit(1);
+}
+
 app.use(
   '/*',
   serveStatic({
@@ -151,7 +169,8 @@ app.use(
 
 app.get('*', async (c) => {
   try {
-    return c.html(await Bun.file('./dist/index.html').text());
+    const indexPath = isDev ? './dist/index.html' : '/app/dist/index.html';
+    return c.html(await Bun.file(indexPath).text());
   } catch (error) {
     console.error('Error serving index.html:', error);
     return c.text('Internal Server Error', 500);
