@@ -1,3 +1,16 @@
+# v1.0.14 (Sun Feb 09 2025)
+
+#### ⚠️ Pushed to `main`
+
+- feat[ENHANCE]: Added back the native scripts for better support ([@parazeeknova](https://github.com/parazeeknova))
+- feat[ENHANCE]: Better script support, better cli for installer ([@parazeeknova](https://github.com/parazeeknova))
+
+#### Authors: 1
+
+- Harsh ([@parazeeknova](https://github.com/parazeeknova))
+
+---
+
 # v1.0.13 (Sun Feb 09 2025)
 
 #### ⚠️ Pushed to `main`
