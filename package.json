@@ -12,12 +12,14 @@
   "files": ["dist"],
   "scripts": {
     "dev": "concurrently \"vite\" \"bun run src/server.js\"",
-    "build": "vite build",
+    "build": "bun run build:web && bun run build:cli",
+    "build:web": "vite build",
+    "build:cli": "tsup",
     "start": "node src/server.js",
     "preview": "vite preview",
     "lint": "biome lint .",
     "format": "biome format . --write",
-    "prepublish": "npm run build",
+    "prepublishOnly": "bun run build",
     "auto": "auto",
     "release": "auto shipit"
   },

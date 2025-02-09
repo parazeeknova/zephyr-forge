@@ -1,0 +1,12 @@
+{
+	"plugins": [
+		"npm",
+		"all-contributors",
+		"first-time-contributor",
+		"released"
+	],
+	"owner": "parazeeknova",
+	"repo": "zephyr-forge",
+	"name": "parazeeknova",
+	"email": "github-actions[bot]@users.noreply.github.com"
+}

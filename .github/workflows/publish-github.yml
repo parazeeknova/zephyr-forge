@@ -13,6 +13,11 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -20,28 +25,23 @@ jobs:
           registry-url: 'https://npm.pkg.github.com'
           scope: '@parazeeknova'
 
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 8
-          run_install: false
-
       - name: Install dependencies
-        run: pnpm install
+        run: bun install
 
       - name: Build
-        run: pnpm run build
+        run: bun run build
 
       - name: Get version
         id: get_version
-        run: echo "VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_ENV
+        run: echo "VERSION=$(bun x jq -r .version package.json)" >> $GITHUB_ENV
 
       - name: Publish to GitHub Packages
         run: |
           # Create temporary package.json for GitHub Packages
-          jq --arg version "$VERSION" --arg name "@parazeeknova/zephyr-forge" \
+          bun x jq --arg version "$VERSION" --arg name "@parazeeknova/zephyr-forge" \
             '.name = $name | .version = $version | .publishConfig.registry = "https://npm.pkg.github.com"' \
             package.json > temp-package.json
           mv temp-package.json package.json
-          npm publish
+          bun publish --access public
         env:
           NODE_AUTH_TOKEN: ${{secrets.GITHUB_TOKEN}}
