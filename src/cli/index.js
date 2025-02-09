@@ -1,5 +1,3 @@
-#!/usr/bin/env node
-
 import { intro, outro, select, text, spinner, note, confirm } from '@clack/prompts';
 import { execSync } from 'node:child_process';
 import fs from 'fs-extra';
