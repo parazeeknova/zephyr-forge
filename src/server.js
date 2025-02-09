@@ -8,14 +8,14 @@ import os from 'node:os';
 import { env } from './env.js';
 
 const app = new Hono();
-const PORT = Number.parseInt(env.PORT || '3000');
+const PORT = Number.parseInt(env.PORT || '3456');
 const isDev = env.NODE_ENV === 'development';
 
 app.use('*', logger());
 app.use(
   '*',
   cors({
-    origin: ['http://localhost:3000', 'https://forge.zephyyrr.in'],
+    origin: ['http://localhost:3456', 'https://forge.zephyyrr.in'],
     allowMethods: ['GET', 'POST', 'OPTIONS'],
     allowHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
