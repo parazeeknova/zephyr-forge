@@ -36,16 +36,17 @@ jobs:
       - name: Build
         run: bun run build
 
-      - name: Get version
-        id: get_version
-        run: echo "VERSION=$(bun x jq -r .version package.json)" >> $GITHUB_ENV
+      - name: Configure npm
+        run: |
+          echo "@parazeeknova:registry=https://npm.pkg.github.com" >> .npmrc
+          echo "//npm.pkg.github.com/:_authToken=${{ secrets.GH_TOKEN }}" >> .npmrc
+
+      - name: Update package.json
+        run: |
+          jq '.name = "@parazeeknova/zephyr-forge" | .publishConfig.registry = "https://npm.pkg.github.com"' package.json > tmp.json
+          mv tmp.json package.json
 
       - name: Publish to GitHub Packages
-        run: |
-          bun x jq --arg version "$VERSION" --arg name "@parazeeknova/zephyr-forge" \
-            '.name = $name | .version = $version | .publishConfig.registry = "https://npm.pkg.github.com"' \
-            package.json > temp-package.json
-          mv temp-package.json package.json
-          bun publish --access public
+        run: npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GH_TOKEN }}
