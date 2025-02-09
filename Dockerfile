@@ -19,6 +19,6 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/src/server.js ./server.js
 COPY --from=builder /app/src/env.js ./env.js
 
-EXPOSE 3000
+EXPOSE 3456
 
 CMD ["bun", "server.js"]
