@@ -1,3 +1,15 @@
+# v1.0.13 (Sun Feb 09 2025)
+
+#### ⚠️ Pushed to `main`
+
+- fix[SHEBANG]: Removed shebang from cli script ([@parazeeknova](https://github.com/parazeeknova))
+
+#### Authors: 1
+
+- Harsh ([@parazeeknova](https://github.com/parazeeknova))
+
+---
+
 # v1.0.12 (Sun Feb 09 2025)
 
 #### ⚠️ Pushed to `main`
