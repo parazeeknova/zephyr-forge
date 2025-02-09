@@ -6,34 +6,21 @@ services:
     container_name: zephyr-forge
     restart: unless-stopped
     ports:
-      - "3456:3000"
+      - "${PORT:-3000}:3000"
     environment:
       - NODE_ENV=production
       - PORT=3000
-      - SITE_URL=https://forge.zephyyrr.in
-      - DOCS_URL=https://github.com/parazeeknova/zephyr
+      - SITE_URL=${SITE_URL:-https://forge.zephyyrr.in}
+      - DOCS_URL=${DOCS_URL:-https://github.com/parazeeknova/zephyr}
     volumes:
       - sqlite-data:/app/data
-    user: "1000:1000"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/api/status"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 5s
-    networks:
-      - zephyr-network
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
 
 volumes:
   sqlite-data:
     name: zephyr-forge-data
-
-networks:
-  zephyr-network:
-    name: zephyr-network
-    driver: bridge
