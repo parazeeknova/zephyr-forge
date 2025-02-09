@@ -9,6 +9,7 @@ import { env } from './env.js';
 
 const app = new Hono();
 const PORT = Number.parseInt(env.PORT || '3456');
+const HOST = env.HOST || '0.0.0.0';
 const isDev = env.NODE_ENV === 'development';
 
 app.use('*', logger());
@@ -136,10 +137,10 @@ serve(
   {
     fetch: app.fetch,
     port: PORT,
-    hostname: '0.0.0.0',
+    hostname: HOST,
   },
   (info) => {
-    console.log(`Server started on http://0.0.0.0:${info.port}`);
+    console.log(`Server started on http://${HOST}:${PORT}`);
   },
 );
 
