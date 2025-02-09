@@ -1,3 +1,15 @@
+# v1.0.12 (Sun Feb 09 2025)
+
+#### ⚠️ Pushed to `main`
+
+- fix[GITHUB-PACKAGES]: Fixing github package publish actions workflow ([@parazeeknova](https://github.com/parazeeknova))
+
+#### Authors: 1
+
+- Harsh ([@parazeeknova](https://github.com/parazeeknova))
+
+---
+
 # v1.0.11 (Sun Feb 09 2025)
 
 #### 🐛 Bug Fix
