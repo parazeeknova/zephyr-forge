@@ -16,7 +16,7 @@ const forgeLogo = `
 ██║     ╚██████╔╝██║  ██║╚██████╔╝███████╗
 ╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝`;
 
-const API_BASE = process.env.NODE_ENV === 'production' ? 'https://forge.zephyyrr.in' : '';
+const API_BASE = process.env.NODE_ENV === 'development' ? '' : 'https://forge.zephyyrr.in';
 
 document.addEventListener('DOMContentLoaded', () => {
   injectLogos();
@@ -30,7 +30,7 @@ function setupStatusCheck() {
 
   const updateStatus = async () => {
     try {
-      const response = await fetch(`${API_BASE}/api/status`);
+      const response = await fetchWithRetry(`${API_BASE}/api/status`);
       const data = await response.json();
 
       if (data.status === 'operational') {
@@ -260,3 +260,16 @@ style.textContent = `
 `;
 
 document.head.appendChild(style);
+
+const fetchWithRetry = async (url, options = {}, retries = 3) => {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const response = await fetch(url, options);
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      return response;
+    } catch (error) {
+      if (i === retries - 1) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 1000 * (i + 1)));
+    }
+  }
+};

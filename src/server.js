@@ -16,10 +16,13 @@ app.use('*', logger());
 app.use(
   '*',
   cors({
-    origin: ['http://localhost:3456', 'https://forge.zephyyrr.in'],
+    origin: isDev
+      ? ['http://localhost:3456', 'http://127.0.0.1:3456']
+      : ['https://forge.zephyyrr.in'],
     allowMethods: ['GET', 'POST', 'OPTIONS'],
     allowHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
+    maxAge: 86400,
   }),
 );
 

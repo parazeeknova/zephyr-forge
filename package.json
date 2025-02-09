@@ -11,7 +11,7 @@
   "main": "./dist/server/index.js",
   "files": ["dist"],
   "scripts": {
-    "dev": "concurrently \"vite\" \"bun run src/server.js\"",
+    "dev": "concurrently \"bun run src/server.js\" \"vite\"",
     "build": "bun run build:web && bun run build:cli",
     "build:web": "vite build",
     "build:cli": "tsup",
