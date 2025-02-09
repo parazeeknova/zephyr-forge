@@ -6,3 +6,63 @@
 @use 'components/disclaimer';
 @use 'animations';
 @use 'media';
+
+.security-note {
+  margin: 20px 0;
+  padding: 15px;
+  border: 1px solid #ffb86c;
+  border-radius: 4px;
+  background: rgba(255, 184, 108, 0.1);
+}
+
+.security-title {
+  color: #ffb86c;
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+
+.security-note ul {
+  margin: 10px 0;
+  padding-left: 20px;
+}
+
+.security-note a {
+  color: #8be9fd;
+  text-decoration: none;
+}
+
+.security-note a:hover {
+  text-decoration: underline;
+}
+
+.copy-button {
+  position: relative;
+  transition: all 0.3s ease;
+  
+  &.copied {
+    transform: scale(1.1);
+  }
+}
+
+.toast {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  padding: 12px 24px;
+  background-color: #50fa7b;
+  color: #282a36;
+  border-radius: 4px;
+  opacity: 0;
+  transform: translateY(100%);
+  transition: all 0.3s ease;
+  
+  &.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  
+  &.error {
+    background-color: #ff5555;
+    color: #f8f8f2;
+  }
+}

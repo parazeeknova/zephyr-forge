@@ -67,6 +67,30 @@ app.post('/api/copy-count', async (c) => {
   }
 });
 
+app.get('/api/copy-count/:type', async (c) => {
+  try {
+    const type = c.req.param('type');
+    const result = db.prepare('SELECT count FROM copy_stats WHERE type = ?').get(type);
+    return c.json({ count: result?.count || 0 });
+  } catch (error) {
+    console.error('Error getting copy count:', error);
+    return c.json({ error: 'Failed to get copy count' }, 500);
+  }
+});
+
+app.post('/api/copy-count/:type', async (c) => {
+  try {
+    const type = c.req.param('type');
+    db.prepare('INSERT OR IGNORE INTO copy_stats (type, count) VALUES (?, 0)').run(type);
+    db.prepare('UPDATE copy_stats SET count = count + 1 WHERE type = ?').run(type);
+    const result = db.prepare('SELECT count FROM copy_stats WHERE type = ?').get(type);
+    return c.json({ count: result?.count || 0 });
+  } catch (error) {
+    console.error('Error updating copy count:', error);
+    return c.json({ error: 'Failed to update copy count' }, 500);
+  }
+});
+
 app.use(
   '/assets/*',
   serveStatic({
@@ -101,7 +125,10 @@ try {
       count INTEGER DEFAULT 0
     )
   `);
-  db.run('INSERT OR IGNORE INTO copy_stats (type, count) VALUES (?, 0)', ['npm']);
+  const types = ['npm', 'unix', 'windows'];
+  types.forEach((type) => {
+    db.run('INSERT OR IGNORE INTO copy_stats (type, count) VALUES (?, 0)', [type]);
+  });
   console.log('Database initialized successfully at:', DB_PATH);
 } catch (error) {
   console.error('Database initialization error:', error);

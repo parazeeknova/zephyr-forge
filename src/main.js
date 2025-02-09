@@ -16,15 +16,21 @@ const forgeLogo = `
 ██║     ╚██████╔╝██║  ██║╚██████╔╝███████╗
 ╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝`;
 
+const API_BASE = process.env.NODE_ENV === 'production' ? 'https://forge.zephyyrr.in' : '';
+
 document.addEventListener('DOMContentLoaded', () => {
   injectLogos();
+  setupStatusCheck();
+  setupCopyHandlers();
+});
 
+function setupStatusCheck() {
   const statusDot = document.querySelector('.status-dot');
   const statusText = document.querySelector('.status-text');
 
   const updateStatus = async () => {
     try {
-      const response = await fetch('/api/status');
+      const response = await fetch(`${API_BASE}/api/status`);
       const data = await response.json();
 
       if (data.status === 'operational') {
@@ -51,59 +57,111 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  const command = document.querySelector('.command');
-  const copyButton = document.querySelector('.copy-button');
-  const toast = document.querySelector('#toast');
+  updateStatus();
+  setInterval(updateStatus, 30000);
+}
 
-  const showToast = (message) => {
+function setupCopyHandlers() {
+  const commandWrappers = document.querySelectorAll('.command-wrapper');
+  const toast = document.getElementById('toast');
+
+  const showToast = (message, type = 'success') => {
     toast.textContent = message;
-    toast.classList.add('show');
+    toast.className = `toast show ${type}`;
     setTimeout(() => {
       toast.classList.remove('show');
     }, 2000);
   };
 
-  const copyText = async () => {
+  const updateCopyCount = async (type) => {
     try {
-      await navigator.clipboard.writeText(command.textContent);
-      showToast('Command copied to clipboard!');
-
-      const API_BASE = process.env.NODE_ENV === 'production' ? 'https://forge.zephyyrr.in' : '';
-
-      const response = await fetch(`${API_BASE}/api/status`);
+      const response = await fetch(`${API_BASE}/api/copy-count/${type}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
       const data = await response.json();
 
-      if (data.count) {
+      if (data.count !== undefined) {
+        const wrapper = document.querySelector(`[data-command="${type}"]`);
+        const copyButton = wrapper.querySelector('.copy-button');
         copyButton.setAttribute('data-count', `${data.count} copies`);
+
+        copyButton.classList.add('count-updated');
+        setTimeout(() => {
+          copyButton.classList.remove('count-updated');
+        }, 1000);
       }
-    } catch (err) {
-      showToast('Failed to copy command');
-      console.error('Copy failed:', err);
+    } catch (error) {
+      console.error('Failed to update copy count:', error);
     }
   };
 
-  command.addEventListener('click', copyText);
-  copyButton.addEventListener('click', copyText);
+  const copyCommand = async (wrapper) => {
+    const commandType = wrapper.dataset.command;
+    const commandText = wrapper.querySelector('.command').textContent;
+    const copyButton = wrapper.querySelector('.copy-button');
 
-  updateStatus();
+    try {
+      await navigator.clipboard.writeText(commandText.trim());
+      showToast(`${commandType.toUpperCase()} command copied! 📋`);
+      copyButton.classList.add('copied');
 
-  setInterval(updateStatus, 30000);
+      await updateCopyCount(commandType);
 
-  fetch('/api/copy-count')
-    .then((response) => response.json())
-    .then((data) => {
-      if (data.count) {
-        copyButton.setAttribute('data-count', `${data.count} copies`);
+      setTimeout(() => {
+        copyButton.classList.remove('copied');
+      }, 1000);
+    } catch (error) {
+      showToast('Failed to copy command ❌', 'error');
+      console.error('Copy failed:', error);
+    }
+  };
+
+  const initializeCopyCounts = async () => {
+    const types = ['npm', 'unix', 'windows'];
+    for (const type of types) {
+      try {
+        const response = await fetch(`${API_BASE}/api/copy-count/${type}`);
+        const data = await response.json();
+
+        if (data.count !== undefined) {
+          const wrapper = document.querySelector(`[data-command="${type}"]`);
+          const copyButton = wrapper.querySelector('.copy-button');
+          copyButton.setAttribute('data-count', `${data.count} copies`);
+        }
+      } catch (error) {
+        console.error(`Failed to fetch copy count for ${type}:`, error);
       }
-    })
-    .catch(console.error);
-});
+    }
+  };
+
+  commandWrappers.forEach((wrapper) => {
+    const command = wrapper.querySelector('.command');
+    const copyButton = wrapper.querySelector('.copy-button');
+
+    wrapper.addEventListener('mouseenter', () => {
+      copyButton.classList.add('visible');
+    });
+
+    wrapper.addEventListener('mouseleave', () => {
+      copyButton.classList.remove('visible');
+    });
+
+    command.addEventListener('click', () => copyCommand(wrapper));
+    copyButton.addEventListener('click', () => copyCommand(wrapper));
+  });
+
+  initializeCopyCounts();
+}
 
 function injectLogos() {
   const logoContainer = document.createElement('a');
   logoContainer.href = 'https://development.zephyyrr.in';
   logoContainer.className = 'logo-container';
   logoContainer.target = '_blank';
+  logoContainer.rel = 'noopener noreferrer';
 
   const mainLogo = document.createElement('div');
   mainLogo.className = 'logo';
@@ -119,3 +177,86 @@ function injectLogos() {
   const terminal = document.querySelector('.terminal');
   terminal.insertBefore(logoContainer, terminal.firstChild);
 }
+
+const style = document.createElement('style');
+style.textContent = `
+  .copy-button {
+    position: relative;
+    transition: all 0.3s ease;
+    opacity: 0;
+    transform: translateX(10px);
+  }
+
+  .copy-button.visible {
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  .copy-button.copied {
+    background-color: #50fa7b;
+    color: #282a36;
+    transform: scale(1.1);
+  }
+
+  .copy-button[data-count]::after {
+    content: attr(data-count);
+    position: absolute;
+    bottom: -20px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 12px;
+    color: #6272a4;
+    white-space: nowrap;
+    transition: all 0.3s ease;
+  }
+
+  .copy-button.count-updated[data-count]::after {
+    color: #50fa7b;
+    transform: translateX(-50%) scale(1.1);
+  }
+
+  .toast {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    padding: 12px 24px;
+    background-color: #50fa7b;
+    color: #282a36;
+    border-radius: 4px;
+    opacity: 0;
+    transform: translateY(100%);
+    transition: all 0.3s ease;
+    z-index: 1000;
+  }
+
+  .toast.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .toast.error {
+    background-color: #ff5555;
+    color: #f8f8f2;
+  }
+
+  .command-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px;
+    border-radius: 4px;
+    transition: all 0.3s ease;
+  }
+
+  .command-wrapper:hover {
+    background-color: rgba(98, 114, 164, 0.1);
+  }
+
+  .command {
+    cursor: pointer;
+    user-select: all;
+  }
+`;
+
+document.head.appendChild(style);
