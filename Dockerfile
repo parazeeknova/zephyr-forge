@@ -2,7 +2,7 @@ FROM oven/bun:1 as builder
 
 WORKDIR /app
 
-COPY package*.json bun.lock ./
+COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile
 
 COPY . .
@@ -13,17 +13,19 @@ FROM oven/bun:1-slim
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y sqlite3 curl && \
-    rm -rf /var/lib/apt/lists/* && \
-    mkdir -p /app/data /app/dist && \
-    chown -R 1000:1000 /app && \
-    chmod -R 755 /app && \
-    chmod 777 /app/data
+RUN apt-get update && apt-get install -y \
+    sqlite3 \
+    curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p /app/data \
+    && chown -R 1000:1000 /app \
+    && chmod -R 755 /app \
+    && chmod 777 /app/data
 
-COPY package*.json bun.lock ./
+COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile --production
 
-COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/dist /app/dist
 COPY --from=builder /app/src/server.js ./
 COPY --from=builder /app/src/env.js ./
 

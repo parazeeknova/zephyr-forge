@@ -41,7 +41,7 @@ app.use(
 
 app.get('*', async (c) => {
   try {
-    const html = await Bun.file('./dist/index.html').text();
+    const html = await Bun.file('/app/dist/index.html').text();
     return c.html(html);
   } catch (error) {
     console.error('Error serving index.html:', error);
