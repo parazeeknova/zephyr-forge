@@ -1,0 +1,10 @@
+src/
+.github/
+.vscode/
+.idea/
+*.log
+*.lock
+.env*
+tsup.config.js
+vite.config.js
+biome.json
