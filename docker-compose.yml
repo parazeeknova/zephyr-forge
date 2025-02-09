@@ -15,7 +15,7 @@ services:
     volumes:
       - sqlite-data:/app/data
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/api/status"]
+      test: ["CMD", "curl", "-f", "http://localhost:3456/api/status"]
       interval: 30s
       timeout: 10s
       retries: 3
