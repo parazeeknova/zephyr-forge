@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 
 export default defineConfig({
   root: './src',
-  publicDir: 'public',
+  publicDir: '../public',
   server: {
     proxy: {
       '/api': {
@@ -14,8 +14,7 @@ export default defineConfig({
     },
   },
   build: {
-    outDir: 'dist',
-    assetsDir: 'assets',
+    outDir: '../dist',
     emptyOutDir: true,
     sourcemap: false,
   },

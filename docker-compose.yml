@@ -1,6 +1,8 @@
 services:
   zephyr-forge:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: zephyr-forge
     restart: unless-stopped
     ports:
