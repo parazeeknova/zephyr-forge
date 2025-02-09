@@ -31,16 +31,16 @@ jobs:
       - name: Build
         run: pnpm run build
 
+      - name: Get version
+        id: get_version
+        run: echo "VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_ENV
+
       - name: Publish to GitHub Packages
         run: |
-          # Get version from git tag
-          VERSION=$(git describe --tags --abbrev=0 | sed 's/v//')
-          
           # Create temporary package.json for GitHub Packages
           jq --arg version "$VERSION" --arg name "@parazeeknova/zephyr-forge" \
             '.name = $name | .version = $version | .publishConfig.registry = "https://npm.pkg.github.com"' \
             package.json > temp-package.json
-          
           mv temp-package.json package.json
           npm publish
         env:
