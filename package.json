@@ -2,6 +2,8 @@
   "name": "zephyr-forge",
   "version": "1.0.0",
   "description": "Official installation server and script forge for the Zephyr development environment.",
+  "author": "parazeeknova",
+  "license": "AGPL-3.0",
   "type": "module",
   "scripts": {
     "dev": "concurrently \"vite\" \"bun run src/server.js\"",
@@ -17,8 +19,6 @@
     "docker:logs": "docker-compose logs -f",
     "docker:stop": "docker-compose down"
   },
-  "author": "parazeeknova",
-  "license": "AGPL-3.0",
   "dependencies": {
     "@hono/node-server": "^1.13.8",
     "@t3-oss/env-core": "^0.12.0",

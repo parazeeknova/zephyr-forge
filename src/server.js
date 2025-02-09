@@ -11,93 +11,16 @@ const app = new Hono();
 const PORT = Number.parseInt(env.PORT || '3000');
 const isDev = env.NODE_ENV === 'development';
 
-app.use('*', async (c, next) => {
-  c.req.raw.headers['x-forwarded-proto'] = 'https';
-  return await next();
-});
-
-app.use(
-  '*',
-  cors({
-    origin: ['http://localhost:3000', 'http://localhost:3456', 'https://forge.zephyyrr.in'],
-    allowMethods: ['GET', 'POST', 'OPTIONS'],
-    allowHeaders: ['Content-Type', 'Authorization'],
-    credentials: true,
-  }),
-);
-
-app.use('*', logger());
-
-app.use(
-  '/*',
-  serveStatic({
-    root: './dist',
-    rewriteRequestPath: (path) => {
-      if (path === '/') return '/index.html';
-      return path;
-    },
-  }),
-);
-
-app.get('*', async (c) => {
-  try {
-    const html = await Bun.file('/app/dist/index.html').text();
-    return c.html(html);
-  } catch (error) {
-    console.error('Error serving index.html:', error);
-    return c.text('Internal Server Error', 500);
-  }
-});
-
-const DB_PATH = isDev ? './stats.db' : '/app/data/stats.db';
-
-let db;
-
-try {
-  db = new Database(DB_PATH);
-
-  db.run(`
-    CREATE TABLE IF NOT EXISTS copy_stats (
-      type TEXT PRIMARY KEY,
-      count INTEGER DEFAULT 0
-    )
-  `);
-
-  db.run('INSERT OR IGNORE INTO copy_stats (type, count) VALUES (?, 0)', ['npm']);
-
-  console.log('Database initialized successfully at:', DB_PATH);
-} catch (error) {
-  console.error('Database initialization error:', error);
-  process.exit(1);
-}
-
-if (!isDev) {
-  try {
-    await Bun.write('/app/data/.keep', '');
-  } catch (error) {
-    console.error('Failed to create data directory:', error);
-  }
-}
-
-db.run(`
-  CREATE TABLE IF NOT EXISTS copy_stats (
-    type TEXT PRIMARY KEY,
-    count INTEGER DEFAULT 0
-  )
-`);
-
-db.run('INSERT OR IGNORE INTO copy_stats (type, count) VALUES (?, 0)', ['npm']);
-
 app.use('*', logger());
 app.use(
   '*',
   cors({
     origin: ['http://localhost:3000', 'https://forge.zephyyrr.in'],
+    allowMethods: ['GET', 'POST', 'OPTIONS'],
+    allowHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
   }),
 );
-
-app.use('/*', serveStatic({ root: './dist' }));
 
 app.get('/api/status', (c) => {
   const status = {
@@ -135,9 +58,7 @@ app.get('/api/copy-count', async (c) => {
 app.post('/api/copy-count', async (c) => {
   try {
     db.prepare('UPDATE copy_stats SET count = count + 1 WHERE type = ?').run('npm');
-
     const result = db.prepare('SELECT count FROM copy_stats WHERE type = ?').get('npm');
-
     return c.json({ count: result?.count || 0 });
   } catch (error) {
     console.error('Error updating copy count:', error);
@@ -145,37 +66,80 @@ app.post('/api/copy-count', async (c) => {
   }
 });
 
+app.use(
+  '/assets/*',
+  serveStatic({
+    root: './dist',
+    rewriteRequestPath: (path) => path,
+    middleware: async (ctx, next) => {
+      const ext = path.extname(ctx.req.url);
+      switch (ext) {
+        case '.js':
+          ctx.res.headers.set('Content-Type', 'application/javascript');
+          break;
+        case '.css':
+          ctx.res.headers.set('Content-Type', 'text/css');
+          break;
+        case '.svg':
+          ctx.res.headers.set('Content-Type', 'image/svg+xml');
+          break;
+      }
+      await next();
+    },
+  }),
+);
+
+const DB_PATH = isDev ? './stats.db' : '/app/data/stats.db';
+let db;
+
+try {
+  db = new Database(DB_PATH);
+  db.run(`
+    CREATE TABLE IF NOT EXISTS copy_stats (
+      type TEXT PRIMARY KEY,
+      count INTEGER DEFAULT 0
+    )
+  `);
+  db.run('INSERT OR IGNORE INTO copy_stats (type, count) VALUES (?, 0)', ['npm']);
+  console.log('Database initialized successfully at:', DB_PATH);
+} catch (error) {
+  console.error('Database initialization error:', error);
+  process.exit(1);
+}
+
+app.use(
+  '/*',
+  serveStatic({
+    root: '/app/dist',
+    rewriteRequestPath: (path) => {
+      if (path === '/') return '/index.html';
+      return path;
+    },
+  }),
+);
+
+app.get('*', async (c) => {
+  try {
+    return c.html(await Bun.file('./dist/index.html').text());
+  } catch (error) {
+    console.error('Error serving index.html:', error);
+    return c.text('Internal Server Error', 500);
+  }
+});
+
 app.onError((err, c) => {
   console.error(`[${new Date().toISOString()}] Error:`, err);
-  return c.json(
-    {
-      error: env.NODE_ENV === 'development' ? err.message : 'Internal Server Error',
-      status: 500,
-    },
-    500,
-  );
+  return c.json({ error: isDev ? err.message : 'Internal Server Error' }, 500);
 });
 
 serve(
   {
     fetch: app.fetch,
     port: PORT,
+    hostname: '0.0.0.0',
   },
   (info) => {
-    console.log(`
-=============================================================================
-                    ZEPHYR INSTALLER (${env.NODE_ENV.toUpperCase()})
-=============================================================================
-
-🚀 Server running at: http://localhost:${info.port}
-🔧 Environment: ${env.NODE_ENV}
-📝 Logging: Enabled
-🔑 CORS: Enabled
-🛠  API Base: /api
-💾 Database: Connected
-
-=============================================================================
-  `);
+    console.log(`Server started on http://0.0.0.0:${info.port}`);
   },
 );
 
