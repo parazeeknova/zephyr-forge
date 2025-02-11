@@ -6,24 +6,26 @@
   "license": "AGPL-3.0",
   "type": "module",
   "bin": {
-    "zephyr-forge": "./dist/cli/index.js"
+    "zephyr-forge": "./dist/module/cli/index.js"
   },
-  "main": "./dist/server/index.js",
-  "files": [
-    "dist"
-  ],
+  "main": "./dist/module/index.js",
+  "files": ["dist"],
   "scripts": {
-    "dev": "concurrently \"bun run src/server.js\" \"vite\"",
+    "dev": "concurrently \"bun run dev:server\" \"bun run dev:web\"",
+    "dev:server": "bun run src/server.js",
+    "dev:web": "vite",
     "build": "bun run build:web && bun run build:cli",
     "build:web": "vite build",
     "build:cli": "tsup",
-    "start": "node src/server.js",
     "preview": "vite preview",
     "lint": "biome lint .",
     "format": "biome format . --write",
     "prepublishOnly": "bun run build",
     "auto": "auto",
-    "release": "auto shipit"
+    "release": "auto shipit",
+    "preinstall": "bun run build:cli",
+    "postinstall": "node dist/cli/commands/setup.js",
+    "prepare": "bun run build"
   },
   "publishConfig": {
     "access": "public",

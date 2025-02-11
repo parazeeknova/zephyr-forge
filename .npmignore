@@ -8,3 +8,7 @@ src/
 tsup.config.js
 vite.config.js
 biome.json
+!dist/**/*
+!package.json
+!README.md
+!LICENSE
