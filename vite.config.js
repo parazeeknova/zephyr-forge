@@ -5,16 +5,22 @@ export default defineConfig({
   root: './src',
   publicDir: '../public',
   server: {
+    port: 3456,
     proxy: {
       '/api': {
         target: 'http://localhost:3456',
         changeOrigin: true,
         secure: false,
       },
+      '/docker': {
+        target: 'http://localhost:2375',
+        changeOrigin: true,
+        secure: false,
+      },
     },
   },
   build: {
-    outDir: '../dist',
+    outDir: '../dist/web',
     emptyOutDir: true,
     sourcemap: false,
     assetsDir: 'assets',
@@ -24,13 +30,20 @@ export default defineConfig({
       },
       output: {
         assetFileNames: (assetInfo) => {
-          if (assetInfo.name.endsWith('.css')) {
-            return 'assets/styles/[name][extname]';
-          }
-          return 'assets/[name]-[hash][extname]';
+          const extType =
+            {
+              css: 'styles',
+              js: 'scripts',
+              png: 'images',
+              jpg: 'images',
+              svg: 'images',
+              txt: 'assets',
+            }[assetInfo.name.split('.').pop()] || 'misc';
+
+          return `assets/${extType}/[name]-[hash][extname]`;
         },
-        chunkFileNames: 'assets/js/[name]-[hash].js',
-        entryFileNames: 'assets/js/[name]-[hash].js',
+        chunkFileNames: 'assets/scripts/[name]-[hash].js',
+        entryFileNames: 'assets/scripts/[name]-[hash].js',
       },
     },
   },
@@ -39,6 +52,13 @@ export default defineConfig({
       scss: {
         additionalData: `@use "sass:math";`,
       },
+    },
+  },
+  resolve: {
+    alias: {
+      '@': resolve(__dirname, './src'),
+      '@assets': resolve(__dirname, './src/assets'),
+      '@lib': resolve(__dirname, './src/lib'),
     },
   },
 });

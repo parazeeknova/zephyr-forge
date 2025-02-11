@@ -1,478 +1,215 @@
-import { outro, select, text, confirm } from '@clack/prompts';
-import { execSync } from 'node:child_process';
+#!/usr/bin/env node
+
+import { outro, select, confirm, text, isCancel } from '@clack/prompts';
 import { setTimeout } from 'node:timers/promises';
-import { isCancel } from '@clack/prompts';
 import fs from 'fs-extra';
 import path from 'node:path';
-import gradient from 'gradient-string';
-import figlet from 'figlet';
-import retry from 'async-retry';
-import ora from 'ora';
-import logUpdate from 'log-update';
-import boxen from 'boxen';
 import chalk from 'chalk';
-import terminalLink from 'terminal-link';
+import { findProjectRoot, checkRequirements } from '../lib/utils.js';
+import { displayBanner } from '../lib/ui.js';
+import { setupCommand } from './commands/setup.js';
+import { devCommand } from './commands/dev.js';
 
 const sleep = (ms = 1000) => setTimeout(ms);
 
-const BOXEN_CONFIG = {
-  padding: 1,
-  margin: 1,
-  borderStyle: 'round',
-  borderColor: 'cyan',
-};
+async function main() {
+  try {
+    await displayBanner();
+    await sleep(500);
 
-async function displayBanner() {
-  console.clear();
-  const title = figlet.textSync('ZEPHYR', {
-    font: 'ANSI Shadow',
-    horizontalLayout: 'fitted',
-  });
+    const validCommands = ['setup', 'init', 'dev'];
+    const command = process.argv[2];
 
-  const gradientTitle = gradient.pastel.multiline(title);
-  const boxedTitle = boxen(gradientTitle, {
-    ...BOXEN_CONFIG,
-    title: '🚀 Welcome',
-    titleAlignment: 'center',
-  });
-
-  console.log(boxedTitle);
-
-  const subtitle = chalk.cyan('Social Media Aggregator');
-  const version = `Version ${chalk.green('1.0.0')} by ${terminalLink('parazeeknova', 'https://github.com/parazeeknova')}`;
-
-  console.log(
-    boxen(`${subtitle}\n${version}`, {
-      ...BOXEN_CONFIG,
-      borderColor: 'green',
-    }),
-  );
-
-  await sleep(1000);
-}
-
-async function retryOperation(operation, options = {}) {
-  const defaultOptions = {
-    retries: 3,
-    minTimeout: 1000,
-    maxTimeout: 3000,
-    onRetry: (error, attempt) => {
+    if (!command || !validCommands.includes(command)) {
       console.log(
-        boxen(
-          `${chalk.yellow(`Attempt ${attempt}`)}\n${chalk.red(`Error: ${error.message}`)}\n${chalk.blue('Retrying...')}`,
-          { ...BOXEN_CONFIG, borderColor: 'yellow' },
-        ),
+        chalk.red('\n📌 Usage:'),
+        '\n   npx zephyr-forge@latest setup  (Initialize and start development)',
+        '\n   npx zephyr-forge@latest init   (Only initialize)',
+        '\n   npx zephyr-forge@latest dev    (Only start development)',
       );
-    },
-  };
-
-  return retry(
-    async (bail, attempt) => {
-      try {
-        return await operation();
-      } catch (error) {
-        if (error.message.includes('ENOENT') || error.message.includes('permission denied')) {
-          bail(error);
-          return;
-        }
-        throw error;
-      }
-    },
-    { ...defaultOptions, ...options },
-  );
-}
-
-async function detectPackageManager() {
-  const packageManagers = [
-    {
-      name: 'pnpm',
-      command: 'pnpm -v',
-      installCmd: 'npm install -g pnpm',
-      speed: 'Fastest',
-      diskUsage: 'Lowest',
-      icon: '🚀',
-    },
-    {
-      name: 'bun',
-      command: 'bun -v',
-      installCmd: 'npm install -g bun',
-      speed: 'Very Fast',
-      diskUsage: 'Low',
-      icon: '⚡',
-    },
-    {
-      name: 'yarn',
-      command: 'yarn -v',
-      installCmd: 'npm install -g yarn',
-      speed: 'Fast',
-      diskUsage: 'Medium',
-      icon: '🧶',
-    },
-    {
-      name: 'npm',
-      command: 'npm -v',
-      installCmd: null,
-      speed: 'Standard',
-      diskUsage: 'High',
-      icon: '📦',
-    },
-  ];
-
-  const installed = [];
-  const notInstalled = [];
-
-  for (const pm of packageManagers) {
-    try {
-      const version = execSync(pm.command, { stdio: 'pipe' }).toString().trim();
-      installed.push({ ...pm, version });
-    } catch {
-      notInstalled.push(pm);
+      process.exit(1);
     }
-  }
-  return { installed, notInstalled };
-}
 
-async function selectPackageManager() {
-  console.clear();
-  const spinner = ora('Detecting package managers').start();
+    const requirements = await checkRequirements();
+    const dockerStatus = await checkDocker().catch(() => ({
+      installed: false,
+      error: 'Docker is not running',
+    }));
+    requirements.push(dockerStatus);
+    const missingReqs = requirements.filter((req) => !req.installed);
 
-  const { installed, notInstalled } = await detectPackageManager();
-  await sleep(1000);
-  spinner.succeed('Package managers detected');
+    if (missingReqs.length > 0) {
+      console.log(chalk.red('\n❌ Missing requirements:'));
+      missingReqs.forEach((req) => {
+        console.log(chalk.yellow(`• ${req.name}: ${req.error}`));
+      });
+      process.exit(1);
+    }
 
-  const choices = installed.map((pm) => ({
-    value: pm.name,
-    label: `${pm.icon} ${pm.name} v${pm.version}`,
-    hint: `${chalk.blue(pm.speed)} | ${chalk.yellow(pm.diskUsage)} disk usage`,
-  }));
-
-  console.log(
-    boxen(chalk.cyan('Available Package Managers'), { ...BOXEN_CONFIG, borderColor: 'blue' }),
-  );
-
-  const packageManager = await select({
-    message: 'Select your preferred package manager:',
-    options: choices,
-  });
-
-  if (isCancel(packageManager)) {
-    outro('Installation cancelled. Goodbye! 👋');
-    process.exit(0);
-  }
-
-  return packageManager;
-}
-
-async function checkDependencies() {
-  console.clear();
-  console.log(boxen(chalk.cyan('Dependency Check'), { ...BOXEN_CONFIG, borderColor: 'blue' }));
-
-  const dependencies = {
-    Git: { command: 'git --version', icon: '🔄' },
-    Docker: { command: 'docker --version', icon: '🐳' },
-    'Node.js': { command: 'node --version', icon: '💚' },
-  };
-
-  const results = [];
-  for (const [dep, { command, icon }] of Object.entries(dependencies)) {
-    const spinner = ora(`${icon} Checking ${dep}...`).start();
-
-    try {
-      const version = await retryOperation(async () => {
-        return execSync(command, { stdio: 'pipe' }).toString().trim();
+    if (!process.argv[2]) {
+      const command = await select({
+        message: 'What would you like to do?',
+        options: [
+          { value: 'setup', label: 'Setup Project', hint: 'Initialize and start development' },
+          { value: 'init', label: 'Initialize Only', hint: 'Create a new Zephyr project' },
+          { value: 'dev', label: 'Development Only', hint: 'For existing project' },
+          { value: 'exit', label: 'Exit' },
+        ],
       });
 
-      results.push(`${icon} ${dep}: ${chalk.green('✓')} ${version}`);
-      spinner.succeed(`${dep} ${chalk.green(version)}`);
-    } catch (error) {
-      results.push(`${icon} ${dep}: ${chalk.red('✗')} not found`);
-      spinner.fail(`${dep} ${chalk.red('not found')}`);
+      if (isCancel(command)) {
+        outro(chalk.yellow('Operation cancelled'));
+        process.exit(0);
+      }
 
-      const shouldContinue = await confirm({
-        message: `${dep} not found. Would you like to continue anyway?`,
-        initialValue: false,
-      });
+      process.argv[2] = command;
+    }
 
-      if (isCancel(shouldContinue) || !shouldContinue) {
-        console.log(
-          boxen(chalk.red(`Please install ${dep} to continue`), {
-            ...BOXEN_CONFIG,
-            borderColor: 'red',
-          }),
-        );
+    switch (process.argv[2]) {
+      case 'setup': {
+        const projectName = await text({
+          message: 'Enter project name:',
+          defaultValue: 'zephyr-app',
+          validate: (value) => {
+            if (value.length === 0) return 'Project name is required';
+            if (!/^[a-z0-9-]+$/.test(value))
+              return 'Project name can only contain lowercase letters, numbers, and dashes';
+            return;
+          },
+        });
+
+        if (isCancel(projectName)) {
+          outro(chalk.yellow('Operation cancelled'));
+          process.exit(0);
+        }
+
+        const targetDir = path.join(process.cwd(), projectName);
+
+        if (await fs.pathExists(targetDir)) {
+          const overwrite = await confirm({
+            message: `Directory ${projectName} already exists. Overwrite?`,
+            initialValue: false,
+          });
+
+          if (isCancel(overwrite) || !overwrite) {
+            outro(chalk.yellow('Operation cancelled'));
+            process.exit(0);
+          }
+
+          await fs.remove(targetDir);
+        }
+
+        await setupCommand({ projectRoot: targetDir, projectName });
+
+        const startDev = await confirm({
+          message: 'Setup complete! Would you like to start the development environment?',
+          initialValue: true,
+        });
+
+        if (startDev) {
+          process.chdir(targetDir);
+          await devCommand({ projectRoot: targetDir });
+        } else {
+          outro(
+            chalk.green(
+              '✨ Setup complete! Run `cd ${projectName} && npx zephyr-forge dev` to start development',
+            ),
+          );
+        }
+        break;
+      }
+
+      case 'init': {
+        const projectName = await text({
+          message: 'Enter project name:',
+          defaultValue: 'zephyr-app',
+          validate: (value) => {
+            if (value.length === 0) return 'Project name is required';
+            if (!/^[a-z0-9-]+$/.test(value))
+              return 'Project name can only contain lowercase letters, numbers, and dashes';
+            return;
+          },
+        });
+
+        if (isCancel(projectName)) {
+          outro(chalk.yellow('Operation cancelled'));
+          process.exit(0);
+        }
+
+        const targetDir = path.join(process.cwd(), projectName);
+
+        if (await fs.pathExists(targetDir)) {
+          const overwrite = await confirm({
+            message: `Directory ${projectName} already exists. Overwrite?`,
+            initialValue: false,
+          });
+
+          if (isCancel(overwrite) || !overwrite) {
+            outro(chalk.yellow('Operation cancelled'));
+            process.exit(0);
+          }
+
+          await fs.remove(targetDir);
+        }
+
+        await setupCommand({ projectRoot: targetDir, projectName });
+        break;
+      }
+
+      case 'dev': {
+        let projectRoot;
+        try {
+          projectRoot = await findProjectRoot(process.cwd());
+        } catch (error) {
+          console.log(
+            chalk.red(
+              '⚠️  Not in a Zephyr project directory. Please run this command from your Zephyr project root.',
+            ),
+          );
+          process.exit(1);
+        }
+        await devCommand({ projectRoot });
+        break;
+      }
+
+      case 'exit': {
+        outro(chalk.green('👋 Goodbye!'));
+        process.exit(0);
+        break;
+      }
+
+      default: {
+        console.log(chalk.red('\n❌ Unknown command:', process.argv[2]));
         process.exit(1);
       }
     }
-    await sleep(500);
-  }
-
-  console.log(
-    boxen(chalk.cyan('Dependency Check Summary:\n\n') + results.join('\n'), {
-      ...BOXEN_CONFIG,
-      borderColor: 'green',
-    }),
-  );
-  await sleep(1000);
-}
-
-async function getInstallLocation() {
-  console.clear();
-  const homeDir = process.env.HOME || process.env.USERPROFILE;
-  const currentDir = process.cwd();
-
-  console.log(boxen(chalk.cyan('Installation Location'), { ...BOXEN_CONFIG, borderColor: 'blue' }));
-
-  const locationChoice = await select({
-    message: 'Where would you like to install Zephyr?',
-    options: [
-      { value: path.join(currentDir, 'zephyr'), label: '📂 Current Directory', hint: currentDir },
-      { value: path.join(homeDir, 'Downloads/zephyr'), label: '⬇️ Downloads' },
-      { value: path.join(homeDir, 'Desktop/zephyr'), label: '🖥️ Desktop' },
-      { value: 'custom', label: '🎯 Custom Location' },
-    ],
-  });
-
-  if (isCancel(locationChoice)) {
-    outro('Installation cancelled. Goodbye! 👋');
-    process.exit(0);
-  }
-
-  if (locationChoice === 'custom') {
-    const customPath = await text({
-      message: 'Enter custom installation path:',
-      validate: (input) => (input.length === 0 ? 'Please enter a valid path' : undefined),
-    });
-
-    if (isCancel(customPath)) {
-      outro('Installation cancelled. Goodbye! 👋');
-      process.exit(0);
-    }
-
-    return path.resolve(customPath);
-  }
-
-  return locationChoice;
-}
-
-async function selectBranch() {
-  console.clear();
-  console.log(
-    boxen(chalk.cyan('Select Installation Branch'), { ...BOXEN_CONFIG, borderColor: 'blue' }),
-  );
-
-  const branch = await select({
-    message: 'Select installation branch:',
-    options: [
-      { value: 'main', label: '🌟 main', hint: 'Stable release branch' },
-      { value: 'development', label: '🔧 development', hint: 'Development branch (recommended)' },
-    ],
-  });
-
-  if (isCancel(branch)) {
-    outro('Installation cancelled. Goodbye! 👋');
-    process.exit(0);
-  }
-
-  return branch;
-}
-
-async function installZephyr(installDir, packageManager) {
-  console.clear();
-  console.log(
-    boxen(chalk.cyan(`Installing to: ${installDir}\nUsing: ${packageManager}`), {
-      ...BOXEN_CONFIG,
-      borderColor: 'blue',
-    }),
-  );
-
-  const progress = {
-    total: 5,
-    current: 0,
-    message: '',
-  };
-
-  const updateProgress = () => {
-    const bar = '█'.repeat(progress.current) + '░'.repeat(progress.total - progress.current);
-    const percentage = Math.round((progress.current / progress.total) * 100);
-
-    logUpdate(
-      boxen(
-        `${chalk.cyan('Installation Progress')}\n\n${bar} ${percentage}%\n${progress.message}`,
-        { ...BOXEN_CONFIG, borderColor: 'yellow' },
-      ),
-    );
-  };
-
-  try {
-    if (fs.existsSync(installDir)) {
-      progress.message = '🗑️ Cleaning existing directory...';
-      progress.current++;
-      updateProgress();
-
-      await retryOperation(async () => {
-        await fs.remove(installDir);
-      });
-    }
-
-    const branch = await selectBranch();
-    progress.current++;
-    progress.message = '📥 Cloning repository...';
-    updateProgress();
-
-    await retryOperation(async () => {
-      execSync(
-        `git clone -b ${branch} https://github.com/parazeeknova/zephyr.git "${installDir}"`,
-        {
-          stdio: 'pipe',
-        },
-      );
-    });
-
-    process.chdir(installDir);
-    progress.current++;
-    progress.message = '📦 Installing dependencies...';
-    updateProgress();
-
-    await retryOperation(async () => {
-      execSync(`${packageManager} install`, { stdio: 'pipe' });
-    });
-
-    progress.current++;
-    progress.message = '🎉 Finalizing installation...';
-    updateProgress();
-
-    await sleep(1000);
-    progress.current = progress.total;
-    progress.message = '✨ Installation complete!';
-    updateProgress();
-
-    await showCompletionMenu(installDir, packageManager);
   } catch (error) {
-    logUpdate.clear();
-    console.log(
-      boxen(chalk.red(`Installation failed: ${error.message}`), {
-        ...BOXEN_CONFIG,
-        borderColor: 'red',
-      }),
-    );
+    console.error(chalk.red('\n❌ Error:'), error.message);
 
-    const shouldRetry = await confirm({
-      message: 'Would you like to retry the installation?',
-      initialValue: true,
-    });
-
-    if (shouldRetry) {
-      return installZephyr(installDir, packageManager);
-    }
-    process.exit(1);
-  }
-}
-
-async function showCompletionMenu(installDir, packageManager) {
-  console.clear();
-  console.log(
-    boxen(chalk.green('🎉 Installation Complete! 🎉'), { ...BOXEN_CONFIG, borderColor: 'green' }),
-  );
-
-  const action = await select({
-    message: 'What would you like to do next?',
-    options: [
-      { value: 'code', label: '📝 Open in VS Code' },
-      { value: 'folder', label: '📂 Open Folder Location' },
-      { value: 'dev', label: '🚀 Start Development Server' },
-      { value: 'exit', label: '👋 Exit' },
-    ],
-  });
-
-  if (isCancel(action)) {
-    outro('Installation completed. Goodbye! 👋');
-    process.exit(0);
-  }
-
-  const spinner = ora('Processing').start();
-
-  try {
-    await retryOperation(async () => {
-      switch (action) {
-        case 'code':
-          if (await commandExists('code')) {
-            execSync(`code "${installDir}"`, { stdio: 'inherit' });
-            spinner.succeed('VS Code opened successfully');
-          } else {
-            spinner.fail('VS Code not found');
-            throw new Error('VS Code is not installed');
-          }
-          break;
-        case 'folder': {
-          const command =
-            process.platform === 'win32'
-              ? 'explorer'
-              : process.platform === 'darwin'
-                ? 'open'
-                : 'xdg-open';
-          execSync(`${command} "${installDir}"`, { stdio: 'inherit' });
-          spinner.succeed('Folder opened successfully');
-          break;
-        }
-        case 'dev':
-          spinner.succeed('Starting development server');
-          execSync(`${packageManager} run dev`, { stdio: 'inherit' });
-          break;
-        case 'exit':
-          outro('Thank you for installing Zephyr! 👋');
-          break;
-      }
-    });
-  } catch (error) {
-    spinner.fail(`Failed: ${error.message}`);
     const retry = await confirm({
-      message: 'Would you like to try another action?',
+      message: 'Would you like to try again?',
       initialValue: true,
     });
 
     if (retry) {
-      return showCompletionMenu(installDir, packageManager);
+      return main();
     }
-  }
-}
 
-async function commandExists(command) {
-  try {
-    execSync(`${command} --version`, { stdio: 'ignore' });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-async function main() {
-  if (process.argv[2] !== 'init') {
-    console.log(
-      boxen(chalk.red('Usage: npx zephyr-forge@latest init'), {
-        ...BOXEN_CONFIG,
-        borderColor: 'red',
-      }),
-    );
-    process.exit(1);
-  }
-
-  try {
-    await displayBanner();
-    await checkDependencies();
-    const packageManager = await selectPackageManager();
-    const installLocation = await getInstallLocation();
-    await installZephyr(installLocation, packageManager);
-  } catch (error) {
-    console.log(
-      boxen(chalk.red(`Fatal error: ${error.message}`), { ...BOXEN_CONFIG, borderColor: 'red' }),
-    );
     process.exit(1);
   }
 }
+
+process.on('SIGINT', () => {
+  console.log(chalk.yellow('\n\n👋 Gracefully shutting down...'));
+  process.exit(0);
+});
+
+process.on('uncaughtException', (error) => {
+  console.error(chalk.red('\n❌ Fatal error:'), error);
+  process.exit(1);
+});
 
 main().catch((error) => {
-  console.log(
-    boxen(chalk.red(`Unexpected error: ${error.message}`), { ...BOXEN_CONFIG, borderColor: 'red' }),
-  );
+  console.error(chalk.red('\n❌ Unhandled error:'), error);
   process.exit(1);
 });
