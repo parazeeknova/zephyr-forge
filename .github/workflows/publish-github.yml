@@ -44,7 +44,18 @@ jobs:
       - name: Update package.json for publishing
         run: |
           cp package.json package.json.orig
-          jq '.name = "@parazeeknova/zephyr-forge" | .publishConfig.registry = "https://npm.pkg.github.com"' package.json > tmp.json
+          # Get current version and increment patch number
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          MAJOR=$(echo $CURRENT_VERSION | cut -d. -f1)
+          MINOR=$(echo $CURRENT_VERSION | cut -d. -f2)
+          PATCH=$(echo $CURRENT_VERSION | cut -d. -f3)
+          NEW_PATCH=$((PATCH + 1))
+          NEW_VERSION="$MAJOR.$MINOR.$NEW_PATCH"
+          
+          # Update package.json with new version and registry
+          jq --arg version "$NEW_VERSION" --arg name "@parazeeknova/zephyr-forge" \
+            '.version = $version | .name = $name | .publishConfig.registry = "https://npm.pkg.github.com"' \
+            package.json > tmp.json
           mv tmp.json package.json
 
       - name: Publish to GitHub Packages
