@@ -1,3 +1,16 @@
+# v1.0.20 (Wed Feb 12 2025)
+
+#### ⚠️ Pushed to `main`
+
+- fix[INIT]: fixing scripts ([@parazeeknova](https://github.com/parazeeknova))
+- fix[PUBLIC]: Moved public to src folder ([@parazeeknova](https://github.com/parazeeknova))
+
+#### Authors: 1
+
+- Harsh ([@parazeeknova](https://github.com/parazeeknova))
+
+---
+
 # v1.0.19 (Wed Feb 12 2025)
 
 #### ⚠️ Pushed to `main`
