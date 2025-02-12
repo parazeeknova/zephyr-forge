@@ -1,3 +1,16 @@
+# v1.0.21 (Wed Feb 12 2025)
+
+#### 🐛 Bug Fix
+
+- fix[SCRIPT]: Fixing scripts, added ai for auto pr summary [#14](https://github.com/parazeeknova/zephyr-forge/pull/14) ([@parazeeknova](https://github.com/parazeeknova) [@pxrsival](https://github.com/pxrsival))
+
+#### Authors: 2
+
+- Harsh ([@parazeeknova](https://github.com/parazeeknova))
+- Wooimbouttamakeanameformyselfere ([@pxrsival](https://github.com/pxrsival))
+
+---
+
 # v1.0.20 (Wed Feb 12 2025)
 
 #### ⚠️ Pushed to `main`
