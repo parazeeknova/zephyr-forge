@@ -6,38 +6,29 @@ on:
 
 permissions:
   contents: write
-  packages: write
-  issues: write
-  pull-requests: write
 
 jobs:
   release:
     runs-on: ubuntu-latest
-    if: "!contains(github.event.head_commit.message, 'ci skip') && !contains(github.event.head_commit.message, 'skip ci')"
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
           token: ${{ secrets.GH_TOKEN }}
 
-      - name: Configure Git
-        run: |
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git config --global user.name "github-actions[bot]"
-
       - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+        uses: oven-sh/setup-bun@v1
         with:
           bun-version: latest
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18.x'
-          registry-url: 'https://registry.npmjs.org/'
+      - name: Setup Git User
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Install dependencies
-        run: bun install
+        run: bun install --frozen-lockfile
 
       - name: Build
         run: |
@@ -46,13 +37,28 @@ jobs:
         env:
           NODE_ENV: production
 
-      - name: Skip postinstall for release
+      - name: Update package.json for publishing
         run: |
-          jq '.scripts.postinstall = null' package.json > tmp.json
+          # Save original package.json
+          cp package.json package.json.orig
+          # Update package.json for GitHub Packages
+          jq '.name = "@parazeeknova/zephyr-forge" | .publishConfig.registry = "https://npm.pkg.github.com"' package.json > tmp.json
           mv tmp.json package.json
 
       - name: Release
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: bunx auto shipit
+        run: |
+          # Commit package.json changes
+          git add package.json
+          git commit -m "chore: update package.json for release [skip ci]" || true
+          # Run auto shipit
+          bunx auto shipit
+
+      - name: Restore original package.json
+        run: |
+          mv package.json.orig package.json
+          git add package.json
+          git commit -m "chore: restore package.json after release [skip ci]" || true
+          git push
