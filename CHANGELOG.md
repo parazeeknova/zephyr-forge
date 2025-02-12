@@ -1,3 +1,26 @@
+# v1.0.15 (Wed Feb 12 2025)
+
+#### 🐛 Bug Fix
+
+- fix[BUILD]: Fix for release actions, docker build [#13](https://github.com/parazeeknova/zephyr-forge/pull/13) ([@parazeeknova](https://github.com/parazeeknova) [@pxrsival](https://github.com/pxrsival))
+- fix[BUILD]: Fixing build / actions error for new refactor changes [#12](https://github.com/parazeeknova/zephyr-forge/pull/12) ([@parazeeknova](https://github.com/parazeeknova) [@pxrsival](https://github.com/pxrsival))
+- feat[SCRIPTS]: Moved zephyr's dev script to forge [#11](https://github.com/parazeeknova/zephyr-forge/pull/11) ([@parazeeknova](https://github.com/parazeeknova) [@pxrsival](https://github.com/pxrsival))
+
+#### ⚠️ Pushed to `main`
+
+- fix[WORKFLOW]: Fixing workflow for release ([@parazeeknova](https://github.com/parazeeknova))
+- chore[SEC]: Added security ([@parazeeknova](https://github.com/parazeeknova))
+- chore[LICENSE]: Added license ([@parazeeknova](https://github.com/parazeeknova))
+- chore[COC]: Added code of conduct ([@parazeeknova](https://github.com/parazeeknova))
+- fix[WEB]: Fixing web ([@parazeeknova](https://github.com/parazeeknova))
+
+#### Authors: 2
+
+- Harsh ([@parazeeknova](https://github.com/parazeeknova))
+- Wooimbouttamakeanameformyselfere ([@pxrsival](https://github.com/pxrsival))
+
+---
+
 # v1.0.14 (Sun Feb 09 2025)
 
 #### ⚠️ Pushed to `main`
