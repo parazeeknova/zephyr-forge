@@ -1,5 +1,3 @@
-#!/usr/bin/env node
-
 import { outro, select, confirm, text, isCancel } from '@clack/prompts';
 import { setTimeout } from 'node:timers/promises';
 import fs from 'fs-extra';
