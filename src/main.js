@@ -16,7 +16,8 @@ const forgeLogo = `
 ██║     ╚██████╔╝██║  ██║╚██████╔╝███████╗
 ╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝`;
 
-const API_BASE = process.env.NODE_ENV === 'development' ? '' : 'https://forge.zephyyrr.in';
+const API_BASE =
+  process.env.NODE_ENV === 'development' ? 'http://localhost:3456' : 'https://forge.zephyyrr.in';
 
 document.addEventListener('DOMContentLoaded', () => {
   injectLogos();
@@ -58,7 +59,7 @@ function setupStatusCheck() {
   };
 
   updateStatus();
-  setInterval(updateStatus, 30000);
+  setInterval(updateStatus, 300000);
 }
 
 function setupCopyHandlers() {
@@ -154,6 +155,9 @@ function setupCopyHandlers() {
   });
 
   initializeCopyCounts();
+  initializeCopyCounts().catch((error) => {
+    console.error('Failed to initialize copy counts:', error);
+  });
 }
 
 function injectLogos() {
@@ -265,9 +269,13 @@ const fetchWithRetry = async (url, options = {}, retries = 3) => {
   for (let i = 0; i < retries; i++) {
     try {
       const response = await fetch(url, options);
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`HTTP error! status: ${response.status}, message: ${errorData.error}`);
+      }
       return response;
     } catch (error) {
+      console.error(`Attempt ${i + 1} failed:`, error);
       if (i === retries - 1) throw error;
       await new Promise((resolve) => setTimeout(resolve, 1000 * (i + 1)));
     }

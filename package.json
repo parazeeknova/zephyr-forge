@@ -25,9 +25,7 @@
     "release": "auto shipit",
     "preinstall": "bun run build:cli",
     "postinstall": "node dist/module/cli/commands/setup.js",
-    "prepare": "bun run build",
-    "docker:prodbuild": "docker build -t zephyr-forge:prod -f Dockerfile.prod .",
-    "docker:prodrun": "docker run zephyr-forge:prod"
+    "prepare": "bun run build"
   },
   "publishConfig": {
     "access": "public",

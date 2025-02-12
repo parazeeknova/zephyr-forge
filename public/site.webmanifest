@@ -1,6 +1,6 @@
 {
-  "name": "Zephyr Forge",
-  "short_name": "Zephyr",
+  "name": "zephyr-forge",
+  "short_name": "forge",
   "description": "Official environment setup tool for Zephyr development",
   "theme_color": "#0c0c0c",
   "background_color": "#0c0c0c",
