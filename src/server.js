@@ -6,13 +6,34 @@ import { cors } from 'hono/cors';
 import { Database } from 'bun:sqlite';
 import os from 'node:os';
 import { env } from './env.js';
+import path from 'node:path';
 
 const app = new Hono();
 const PORT = Number.parseInt(env.PORT || '3456');
 const HOST = env.HOST || '0.0.0.0';
 const isDev = env.NODE_ENV === 'development';
 
+const mimeTypes = {
+  '.html': 'text/html',
+  '.css': 'text/css',
+  '.js': 'application/javascript',
+  '.mjs': 'application/javascript',
+  '.json': 'application/json',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.svg': 'image/svg+xml',
+  '.ico': 'image/x-icon',
+  '.webp': 'image/webp',
+  '.woff': 'font/woff',
+  '.woff2': 'font/woff2',
+  '.ttf': 'font/ttf',
+  '.eot': 'application/vnd.ms-fontobject',
+};
+
 app.use('*', logger());
+
 app.use(
   '*',
   cors({
@@ -29,8 +50,13 @@ app.use(
 app.use(
   '/assets/*',
   serveStatic({
-    root: isDev ? './dist' : '/app/dist',
+    root: isDev ? './dist/web' : '/app/dist/web',
     rewriteRequestPath: (path) => path,
+    setHeaders: (headers, filePath) => {
+      const ext = path.extname(filePath).toLowerCase();
+      const contentType = mimeTypes[ext] || 'application/octet-stream';
+      headers.set('Content-Type', contentType);
+    },
   }),
 );
 
@@ -56,6 +82,27 @@ app.get('/api/status', (c) => {
   };
   return c.json(status);
 });
+
+const DB_PATH = isDev ? './stats.db' : '/app/data/stats.db';
+let db;
+
+try {
+  db = new Database(DB_PATH);
+  db.run(`
+    CREATE TABLE IF NOT EXISTS copy_stats (
+      type TEXT PRIMARY KEY,
+      count INTEGER DEFAULT 0
+    )
+  `);
+  const types = ['npm', 'unix', 'windows'];
+  types.forEach((type) => {
+    db.run('INSERT OR IGNORE INTO copy_stats (type, count) VALUES (?, 0)', [type]);
+  });
+  console.log('Database initialized successfully at:', DB_PATH);
+} catch (error) {
+  console.error('Database initialization error:', error);
+  process.exit(1);
+}
 
 app.get('/api/copy-count', async (c) => {
   try {
@@ -102,75 +149,49 @@ app.post('/api/copy-count/:type', async (c) => {
   }
 });
 
-app.use(
-  '/assets/*',
-  serveStatic({
-    root: './dist',
-    rewriteRequestPath: (path) => path,
-    middleware: async (ctx, next) => {
-      const ext = path.extname(ctx.req.url);
-      switch (ext) {
-        case '.js':
-          ctx.res.headers.set('Content-Type', 'application/javascript');
-          break;
-        case '.css':
-          ctx.res.headers.set('Content-Type', 'text/css');
-          break;
-        case '.svg':
-          ctx.res.headers.set('Content-Type', 'image/svg+xml');
-          break;
-      }
-      await next();
-    },
-  }),
-);
-
-const DB_PATH = isDev ? './stats.db' : '/app/data/stats.db';
-let db;
-
 try {
-  db = new Database(DB_PATH);
-  db.run(`
-    CREATE TABLE IF NOT EXISTS copy_stats (
-      type TEXT PRIMARY KEY,
-      count INTEGER DEFAULT 0
-    )
-  `);
-  const types = ['npm', 'unix', 'windows'];
-  types.forEach((type) => {
-    db.run('INSERT OR IGNORE INTO copy_stats (type, count) VALUES (?, 0)', [type]);
-  });
-  console.log('Database initialized successfully at:', DB_PATH);
-} catch (error) {
-  console.error('Database initialization error:', error);
-  process.exit(1);
-}
-
-try {
-  const indexPath = isDev ? './dist/index.html' : '/app/dist/index.html';
-  await Bun.file(indexPath).exists();
+  const indexPath = isDev ? './dist/web/index.html' : '/app/dist/web/index.html';
+  const exists = await Bun.file(indexPath).exists();
+  if (!exists) {
+    throw new Error(`index.html not found at ${indexPath}`);
+  }
   console.log('Verified index.html exists at:', indexPath);
 } catch (error) {
   console.error('Critical: index.html not found at expected location:', error);
-  console.log('Current directory contents:', await Bun.spawn(['ls', '-la']).text());
+  console.log(
+    'Current directory contents:',
+    await Bun.spawn(['ls', '-la', isDev ? './dist/web' : '/app/dist/web']).text(),
+  );
   process.exit(1);
 }
 
 app.use(
-  '/*',
+  '*',
   serveStatic({
-    root: '/app/dist',
-    rewriteRequestPath: (path) => {
-      if (path === '/') return '/index.html';
-      return path;
+    root: isDev ? './dist/web' : '/app/dist/web',
+    rewriteRequestPath: (requestPath) => {
+      const cleanPath = requestPath.split('?')[0];
+      if (cleanPath === '/') return '/index.html';
+      return cleanPath;
+    },
+    setHeaders: (headers, filePath) => {
+      const ext = path.extname(filePath).toLowerCase();
+      const contentType = mimeTypes[ext] || 'application/octet-stream';
+      headers.set('Content-Type', contentType);
+      if (filePath.includes('/assets/')) {
+        headers.set('Cache-Control', 'public, max-age=31536000');
+      }
     },
   }),
 );
 
 app.get('*', async (c) => {
   try {
-    const indexPath = isDev ? './dist/index.html' : '/app/dist/index.html';
-    return c.html(await Bun.file(indexPath).text());
+    const indexPath = isDev ? './dist/web/index.html' : '/app/dist/web/index.html';
+    const indexContent = await Bun.file(indexPath).text();
+    return c.html(indexContent, 200, {
+      'Content-Type': 'text/html',
+    });
   } catch (error) {
     console.error('Error serving index.html:', error);
     return c.text('Internal Server Error', 500);
