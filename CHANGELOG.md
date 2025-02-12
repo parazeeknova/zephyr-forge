@@ -1,3 +1,19 @@
+# v1.0.22 (Wed Feb 12 2025)
+
+#### 🐛 Bug Fix
+
+- feat[CLI]: new CLI command for environment setup [#15](https://github.com/parazeeknova/zephyr-forge/pull/15) ([@parazeeknova](https://github.com/parazeeknova))
+
+#### ⚠️ Pushed to `main`
+
+- fix[AUTOSHIPIT] ([@parazeeknova](https://github.com/parazeeknova))
+
+#### Authors: 1
+
+- Harsh ([@parazeeknova](https://github.com/parazeeknova))
+
+---
+
 # v1.0.21 (Wed Feb 12 2025)
 
 #### 🐛 Bug Fix
