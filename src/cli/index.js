@@ -3,12 +3,66 @@ import { setTimeout } from 'node:timers/promises';
 import fs from 'fs-extra';
 import path from 'node:path';
 import chalk from 'chalk';
+import os from 'node:os';
+import { cloneRepository } from '../lib/utils.js';
 import { findProjectRoot, checkRequirements } from '../lib/utils.js';
 import { displayBanner } from '../lib/ui.js';
 import { setupCommand } from './commands/setup.js';
 import { devCommand } from './commands/dev.js';
+import { checkDocker } from '../lib/docker.js';
+import ora from 'ora';
 
 const sleep = (ms = 1000) => setTimeout(ms);
+
+const createSpinner = (text) => {
+  return ora({
+    text,
+    color: 'cyan',
+    spinner: 'dots',
+  });
+};
+
+async function getPreferredLocations() {
+  const homeDir = os.homedir();
+  const currentDir = process.cwd();
+
+  const defaultDevDirs =
+    {
+      win32: {
+        forks: 'C:\\Forks',
+        dev: 'C:\\Dev',
+        projects: path.join(homeDir, 'Projects'),
+      },
+      darwin: {
+        dev: path.join(homeDir, 'Development'),
+        projects: path.join(homeDir, 'Projects'),
+      },
+      linux: {
+        dev: path.join(homeDir, 'dev'),
+        projects: path.join(homeDir, 'projects'),
+      },
+    }[process.platform] || {};
+
+  const locations = [
+    {
+      value: path.join(currentDir, 'zephyr'),
+      label: 'Current Directory',
+      hint: `(${path.join(currentDir, 'zephyr')})`,
+    },
+    ...Object.entries(defaultDevDirs).map(([key, dir]) => ({
+      value: path.join(dir, 'zephyr'),
+      label: `${key.charAt(0).toUpperCase() + key.slice(1)} Directory`,
+      hint: `(${path.join(dir, 'zephyr')})`,
+    })),
+    {
+      value: 'custom',
+      label: 'Custom Location',
+      hint: '(specify your own path)',
+    },
+  ];
+
+  return locations;
+}
 
 async function main() {
   try {
@@ -65,27 +119,56 @@ async function main() {
 
     switch (process.argv[2]) {
       case 'setup': {
-        const projectName = await text({
-          message: 'Enter project name:',
-          defaultValue: 'zephyr-app',
-          validate: (value) => {
-            if (value.length === 0) return 'Project name is required';
-            if (!/^[a-z0-9-]+$/.test(value))
-              return 'Project name can only contain lowercase letters, numbers, and dashes';
-            return;
-          },
+        const locations = await getPreferredLocations();
+
+        const locationChoice = await select({
+          message: 'Where would you like to clone Zephyr?',
+          options: locations,
+          initialValue: locations[0].value,
         });
 
-        if (isCancel(projectName)) {
+        if (isCancel(locationChoice)) {
           outro(chalk.yellow('Operation cancelled'));
           process.exit(0);
         }
 
-        const targetDir = path.join(process.cwd(), projectName);
+        let targetDir = locationChoice;
+
+        if (locationChoice === 'custom') {
+          targetDir = await text({
+            message: 'Enter the path where you want to clone Zephyr:',
+            placeholder: path.join(os.homedir(), 'your', 'custom', 'path', 'zephyr'),
+            validate: (value) => {
+              if (value.length === 0) return 'Directory is required';
+              if (!path.isAbsolute(value)) return 'Please provide an absolute path';
+              return;
+            },
+          });
+
+          if (isCancel(targetDir)) {
+            outro(chalk.yellow('Operation cancelled'));
+            process.exit(0);
+          }
+        }
+
+        const parentDir = path.dirname(targetDir);
+        if (!(await fs.pathExists(parentDir))) {
+          const createDir = await confirm({
+            message: `Directory ${parentDir} doesn't exist. Create it?`,
+            initialValue: true,
+          });
+
+          if (isCancel(createDir) || !createDir) {
+            outro(chalk.yellow('Operation cancelled'));
+            process.exit(0);
+          }
+
+          await fs.ensureDir(parentDir);
+        }
 
         if (await fs.pathExists(targetDir)) {
           const overwrite = await confirm({
-            message: `Directory ${projectName} already exists. Overwrite?`,
+            message: `Directory ${targetDir} already exists. Overwrite?`,
             initialValue: false,
           });
 
@@ -97,7 +180,19 @@ async function main() {
           await fs.remove(targetDir);
         }
 
-        await setupCommand({ projectRoot: targetDir, projectName });
+        const s = createSpinner(`Cloning Zephyr to ${chalk.blue(targetDir)}...`);
+        s.start();
+
+        try {
+          await cloneRepository(targetDir);
+          s.succeed('Repository cloned successfully');
+        } catch (error) {
+          s.fail(chalk.red(`Failed to clone repository: ${error.message}`));
+          throw error;
+        }
+
+        process.chdir(targetDir);
+        await setupCommand({ projectRoot: targetDir });
 
         const startDev = await confirm({
           message: 'Setup complete! Would you like to start the development environment?',
@@ -105,13 +200,12 @@ async function main() {
         });
 
         if (startDev) {
-          process.chdir(targetDir);
           await devCommand({ projectRoot: targetDir });
         } else {
           outro(
-            chalk.green(
-              '✨ Setup complete! Run `cd ${projectName} && npx zephyr-forge dev` to start development',
-            ),
+            chalk.green(`✨ Setup complete! Run the following commands to start development:
+      cd ${path.basename(targetDir)}
+      npx zephyr-forge dev`),
           );
         }
         break;

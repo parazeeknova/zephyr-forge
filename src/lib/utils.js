@@ -177,3 +177,16 @@ export function validateProjectStructure(projectRoot) {
     missingFiles,
   };
 }
+
+export async function cloneRepository(targetDir) {
+  const REPO_URL = 'https://github.com/parazeeknova/zephyr.git';
+
+  try {
+    execSync(`git clone ${REPO_URL} "${targetDir}"`, {
+      stdio: 'inherit',
+    });
+    return true;
+  } catch (error) {
+    throw new Error(`Failed to clone repository: ${error.message}`);
+  }
+}

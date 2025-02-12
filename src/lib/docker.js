@@ -6,7 +6,7 @@ export async function checkDocker() {
     async (bail) => {
       try {
         execSync('docker info', { stdio: 'pipe' });
-        return true;
+        return { installed: true };
       } catch (error) {
         if (error.message.includes('Cannot connect to the Docker daemon')) {
           bail(new Error('Docker is not running. Please start Docker and try again.'));
