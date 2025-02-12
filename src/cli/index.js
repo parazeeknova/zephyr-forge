@@ -4,23 +4,14 @@ import fs from 'fs-extra';
 import path from 'node:path';
 import chalk from 'chalk';
 import os from 'node:os';
-import { cloneRepository } from '../lib/utils.js';
 import { findProjectRoot, checkRequirements } from '../lib/utils.js';
 import { displayBanner } from '../lib/ui.js';
 import { setupCommand } from './commands/setup.js';
 import { devCommand } from './commands/dev.js';
 import { checkDocker } from '../lib/docker.js';
-import ora from 'ora';
+import { handleDirectorySetup, ensureParentDirectory } from '../lib/handler.js';
 
 const sleep = (ms = 1000) => setTimeout(ms);
-
-const createSpinner = (text) => {
-  return ora({
-    text,
-    color: 'cyan',
-    spinner: 'dots',
-  });
-};
 
 async function getPreferredLocations() {
   const homeDir = os.homedir();
@@ -151,48 +142,10 @@ async function main() {
           }
         }
 
-        const parentDir = path.dirname(targetDir);
-        if (!(await fs.pathExists(parentDir))) {
-          const createDir = await confirm({
-            message: `Directory ${parentDir} doesn't exist. Create it?`,
-            initialValue: true,
-          });
-
-          if (isCancel(createDir) || !createDir) {
-            outro(chalk.yellow('Operation cancelled'));
-            process.exit(0);
-          }
-
-          await fs.ensureDir(parentDir);
-        }
-
-        if (await fs.pathExists(targetDir)) {
-          const overwrite = await confirm({
-            message: `Directory ${targetDir} already exists. Overwrite?`,
-            initialValue: false,
-          });
-
-          if (isCancel(overwrite) || !overwrite) {
-            outro(chalk.yellow('Operation cancelled'));
-            process.exit(0);
-          }
-
-          await fs.remove(targetDir);
-        }
-
-        const s = createSpinner(`Cloning Zephyr to ${chalk.blue(targetDir)}...`);
-        s.start();
-
-        try {
-          await cloneRepository(targetDir);
-          s.succeed('Repository cloned successfully');
-        } catch (error) {
-          s.fail(chalk.red(`Failed to clone repository: ${error.message}`));
-          throw error;
-        }
-
-        process.chdir(targetDir);
-        await setupCommand({ projectRoot: targetDir });
+        await ensureParentDirectory(targetDir);
+        const setupResult = await handleDirectorySetup(targetDir);
+        process.chdir(setupResult.path);
+        await setupCommand({ projectRoot: setupResult.path });
 
         const startDev = await confirm({
           message: 'Setup complete! Would you like to start the development environment?',
@@ -200,11 +153,11 @@ async function main() {
         });
 
         if (startDev) {
-          await devCommand({ projectRoot: targetDir });
+          await devCommand({ projectRoot: setupResult.path });
         } else {
           outro(
             chalk.green(`✨ Setup complete! Run the following commands to start development:
-      cd ${path.basename(targetDir)}
+      cd ${path.basename(setupResult.path)}
       npx zephyr-forge dev`),
           );
         }

@@ -11,7 +11,7 @@ const BOXEN_CONFIG = {
   borderColor: 'cyan',
 };
 
-const createSpinner = (text) => {
+export const createSpinner = (text) => {
   return ora({
     text,
     color: 'cyan',

@@ -8,5 +8,27 @@
 	"owner": "parazeeknova",
 	"repo": "zephyr-forge",
 	"name": "parazeeknova",
-	"email": "github-actions[bot]@users.noreply.github.com"
+	"email": "github-actions[bot]@users.noreply.github.com",
+	"labels": {
+		"major": {
+			"title": "Breaking Change",
+			"description": "Introduces a breaking API change",
+			"releaseType": "major"
+		},
+		"minor": {
+			"title": "Enhancement",
+			"description": "Adds a new feature or enhancement",
+			"releaseType": "minor"
+		},
+		"patch": {
+			"title": "Bug Fix",
+			"description": "Fixes a bug or makes a minor improvement",
+			"releaseType": "patch"
+		},
+		"documentation": {
+			"title": "📝 Documentation",
+			"description": "Changes only affect the documentation",
+			"releaseType": "none"
+		}
+	}
 }
