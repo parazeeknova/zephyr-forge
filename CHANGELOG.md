@@ -1,3 +1,15 @@
+# v1.0.18 (Wed Feb 12 2025)
+
+#### ⚠️ Pushed to `main`
+
+- chore[REVERT]: revert back to old script s ([@parazeeknova](https://github.com/parazeeknova))
+
+#### Authors: 1
+
+- Harsh ([@parazeeknova](https://github.com/parazeeknova))
+
+---
+
 # v1.0.17 (Wed Feb 12 2025)
 
 #### ⚠️ Pushed to `main`
