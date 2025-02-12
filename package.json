@@ -9,9 +9,7 @@
     "zephyr-forge": "./dist/module/cli/index.js"
   },
   "main": "./dist/module/index.js",
-  "files": [
-    "dist"
-  ],
+  "files": ["dist"],
   "scripts": {
     "dev": "concurrently \"bun run dev:server\" \"bun run dev:web\"",
     "dev:server": "bun run src/server.js",
@@ -27,7 +25,9 @@
     "release": "auto shipit",
     "preinstall": "bun run build:cli",
     "postinstall": "node dist/module/cli/commands/setup.js",
-    "prepare": "bun run build"
+    "prepare": "bun run build",
+    "setup": "bun run build:cli && node dist/module/cli/index.js setup",
+    "init": "bun run build:cli && node dist/module/cli/index.js init"
   },
   "publishConfig": {
     "access": "public",
@@ -63,5 +63,6 @@
     "nodemon": "^3.1.9",
     "tsup": "^8.3.6",
     "vite": "^6.1.0"
-  }
+  },
+  "packageManager": "pnpm@10.2.1+sha512.398035c7bd696d0ba0b10a688ed558285329d27ea994804a52bad9167d8e3a72bcb993f9699585d3ca25779ac64949ef422757a6c31102c12ab932e5cbe5cc92"
 }

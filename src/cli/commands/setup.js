@@ -5,7 +5,6 @@ import { checkDocker } from '../../lib/docker.js';
 import { createEnvFiles } from '../../lib/env.js';
 import { validateProjectStructure } from '../../lib/utils.js';
 import { showCompletionMessage } from '../../lib/ui.js';
-import { copyProjectTemplate } from '../../lib/utils.js';
 
 export async function setupCommand(options) {
   await displayBanner('setup');
@@ -13,16 +12,11 @@ export async function setupCommand(options) {
 
   const s = spinner();
   try {
-    // Copy project template
-    s.start('Creating project structure');
-    await copyProjectTemplate(options.projectRoot);
-    s.stop('Project structure created');
-
     // Validate project structure
     s.start('Validating project structure');
     const structureValidation = await validateProjectStructure(options.projectRoot);
     if (!structureValidation.valid) {
-      throw new Error(`Missing required files: ${structureValidation.missingFiles.join(', ')}`);
+      throw new Error(`Invalid project structure: ${structureValidation.missingFiles.join(', ')}`);
     }
     s.stop('Project structure valid');
 
@@ -33,8 +27,13 @@ export async function setupCommand(options) {
 
     // Setup environment files
     s.start('Setting up environment files');
-    await createEnvFiles(options.projectRoot);
-    s.stop('Environment files created');
+    try {
+      await createEnvFiles(options.projectRoot);
+      s.stop('Environment files created');
+    } catch (error) {
+      s.stop(chalk.red(`Failed to create environment files: ${error.message}`));
+      throw error;
+    }
 
     showCompletionMessage({ directory: options.projectRoot });
     outro(chalk.green('✨ Setup complete! Run `zephyr-forge dev` to start development'));
