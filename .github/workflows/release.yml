@@ -44,6 +44,8 @@ jobs:
           # Update package.json for GitHub Packages
           jq '.name = "@parazeeknova/zephyr-forge" | .publishConfig.registry = "https://npm.pkg.github.com"' package.json > tmp.json
           mv tmp.json package.json
+          # Stage the modified package.json
+          git add package.json
 
       - name: Release
         env:
@@ -51,12 +53,12 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           # Commit package.json changes
-          git add package.json
           git commit -m "chore: update package.json for release [skip ci]" || true
           # Run auto shipit
           bunx auto shipit
 
       - name: Restore original package.json
+        if: always()
         run: |
           mv package.json.orig package.json
           git add package.json
