@@ -121,7 +121,7 @@ function setupCopyHandlers() {
   };
 
   const initializeCopyCounts = async () => {
-    const types = ['npm', 'unix', 'windows'];
+    const types = ['setup', 'init', 'dev'];
     for (const type of types) {
       try {
         const response = await fetch(`${API_BASE}/api/copy-count/${type}`);

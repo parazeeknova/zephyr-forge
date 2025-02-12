@@ -58,9 +58,9 @@
 
 			<div class="commands">
 				<div class="command-line">
-					<span class="prompt">!</span>
-					<div class="command-wrapper" data-command="npm">
-						<span class="command">npx @parazeeknova/zephyr-forge init</span>
+					<span class="prompt">$</span>
+					<div class="command-wrapper" data-command="setup">
+						<span class="command">npx zephyr-forge@latest setup</span>
 						<div class="copy-wrapper">
 							<button class="copy-button">copy</button>
 						</div>
@@ -69,10 +69,8 @@
 
 				<div class="command-line">
 					<span class="prompt">$</span>
-					<div class="command-wrapper" data-command="unix">
-						<span class="command"
-							>curl -fsSL https://forge.zephyyrr.in/install.sh | bash</span
-						>
+					<div class="command-wrapper" data-command="init">
+						<span class="command">npx zephyr-forge@latest init</span>
 						<div class="copy-wrapper">
 							<button class="copy-button">copy</button>
 						</div>
@@ -80,48 +78,48 @@
 				</div>
 
 				<div class="command-line">
-					<span class="prompt">></span>
-					<div class="command-wrapper" data-command="windows">
-						<span class="command"
-							>irm https://forge.zephyyrr.in/install.ps1 | iex</span
-						>
+					<span class="prompt">$</span>
+					<div class="command-wrapper" data-command="dev">
+						<span class="command">npx zephyr-forge@latest dev</span>
 						<div class="copy-wrapper">
 							<button class="copy-button">copy</button>
 						</div>
 					</div>
 				</div>
 
-				<div class="security-note">
-					<div class="security-title">⚠️ Security Note</div>
-					<p>
-						For security, always review installation scripts before running
-						them. You can inspect our installers here:
-					</p>
-					<ul>
-						<li>
-							<a href="/install.sh" target="_blank"
-								>Unix/Mac installer (install.sh)</a
-							>
-						</li>
-						<li>
-							<a href="/install.ps1" target="_blank"
-								>Windows installer (install.ps1)</a
-							>
-						</li>
-					</ul>
-				</div>
-
 				<div class="disclaimer">
-					<div class="disclaimer-title">> ENVIRONMENT SETUP</div>
-					This script configures your local development environment for Zephyr.
-					Please review the environment configuration before running the setup
-					script. For production environments, refer to our official
-					documentation.
-					<br /><br />
-					<span class="prompt">$</span> Environment docs:
-					<a href="https://github.com/parazeeknova/zephyr" target="_blank"
-						>github.com/parazeeknova/zephyr</a
-					>
+					<div class="disclaimer-title">ZEPHYR FORGE CLI</div>
+					<p>
+						<strong>setup</strong> &mdash; Initialize and start your development
+						environment.
+					</p>
+					<p><strong>init</strong> &mdash; Create a new Zephyr project.</p>
+					<p>
+						<strong>dev</strong> &mdash; Start development for an existing
+						project.
+					</p>
+					<p>
+						<strong>Available on:</strong>
+						<a href="https://www.npmjs.com/package/zephyr-forge" target="_blank"
+							>NPM Registry</a
+						>
+						&nbsp;|&nbsp;
+						<a
+							href="https://github.com/parazeeknova/zephyr/pkgs/npm/zephyr-forge"
+							target="_blank"
+							>GitHub Packages</a
+						>
+					</p>
+					<p>
+						<strong>Documentation:</strong>
+						<a href="https://github.com/parazeeknova/zephyr" target="_blank"
+							>github.com/parazeeknova/zephyr</a
+						>
+					</p>
+					<p class="disclaimer-note">
+						Note: These commands are designed to set up, initialize, or run
+						development for your Zephyr environment.
+					</p>
 				</div>
 			</div>
 		</div>

@@ -10,6 +10,7 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3456
+      - HOST=0.0.0.0
       - SITE_URL=${SITE_URL:-https://forge.zephyyrr.in}
       - DOCS_URL=${DOCS_URL:-https://github.com/parazeeknova/zephyr}
     volumes:

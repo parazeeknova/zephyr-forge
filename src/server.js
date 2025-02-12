@@ -136,7 +136,7 @@ try {
       count INTEGER DEFAULT 0
     )
   `);
-  const types = ['npm', 'unix', 'windows'];
+  const types = ['setup', 'init', 'dev'];
   types.forEach((type) => {
     db.run('INSERT OR IGNORE INTO copy_stats (type, count) VALUES (?, 0)', [type]);
   });
