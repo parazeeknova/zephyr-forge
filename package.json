@@ -1,9 +1,9 @@
 {
-  "name": "@parazeeknova/zephyr-forge",
-  "version": "1.0.14",
+  "name": "zephyr-forge",
+  "version": "1.0.17",
   "description": "Official installation server and script forge for the Zephyr development environment.",
   "author": "parazeeknova",
-  "license": "AGPL-3.0",
+  "license": "MIT",
   "type": "module",
   "bin": {
     "zephyr-forge": "./dist/module/cli/index.js"

@@ -41,29 +41,12 @@ jobs:
           echo "@parazeeknova:registry=https://npm.pkg.github.com" >> .npmrc
           echo "//npm.pkg.github.com/:_authToken=${{ secrets.GH_TOKEN }}" >> .npmrc
 
-      - name: Update package.json for publishing
+      - name: Update package.json
         run: |
-          cp package.json package.json.orig
-          # Get current version and increment patch number
-          CURRENT_VERSION=$(node -p "require('./package.json').version")
-          MAJOR=$(echo $CURRENT_VERSION | cut -d. -f1)
-          MINOR=$(echo $CURRENT_VERSION | cut -d. -f2)
-          PATCH=$(echo $CURRENT_VERSION | cut -d. -f3)
-          NEW_PATCH=$((PATCH + 1))
-          NEW_VERSION="$MAJOR.$MINOR.$NEW_PATCH"
-          
-          # Update package.json with new version and registry
-          jq --arg version "$NEW_VERSION" --arg name "@parazeeknova/zephyr-forge" \
-            '.version = $version | .name = $name | .publishConfig.registry = "https://npm.pkg.github.com"' \
-            package.json > tmp.json
+          jq '.name = "@parazeeknova/zephyr-forge" | .publishConfig.registry = "https://npm.pkg.github.com"' package.json > tmp.json
           mv tmp.json package.json
 
       - name: Publish to GitHub Packages
         run: npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GH_TOKEN }}
-
-      - name: Restore original package.json
-        if: always()
-        run: |
-          mv package.json.orig package.json

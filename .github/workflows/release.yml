@@ -42,23 +42,8 @@ jobs:
       - name: Build
         run: bun run build
 
-      - name: Update package.json for publishing
-        run: |
-          cp package.json package.json.orig
-          jq '.publishConfig.registry = "https://registry.npmjs.org/"' package.json > tmp.json
-          mv tmp.json package.json
-          git add package.json package.json.orig
-
       - name: Release
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: bunx auto shipit
-
-      - name: Restore original package.json
-        if: always()
-        run: |
-          mv package.json.orig package.json
-          git add package.json
-          git commit -m "chore: restore package.json after release [skip ci]" || true
-          git push
