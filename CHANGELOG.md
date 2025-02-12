@@ -1,3 +1,15 @@
+# v1.0.19 (Wed Feb 12 2025)
+
+#### ⚠️ Pushed to `main`
+
+- docs[README]: Updated links ([@parazeeknova](https://github.com/parazeeknova))
+
+#### Authors: 1
+
+- Harsh ([@parazeeknova](https://github.com/parazeeknova))
+
+---
+
 # v1.0.18 (Wed Feb 12 2025)
 
 #### ⚠️ Pushed to `main`
