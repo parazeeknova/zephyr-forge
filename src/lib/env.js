@@ -5,10 +5,8 @@ import path from 'node:path';
 import { select, text, isCancel, outro } from '@clack/prompts';
 import ora from 'ora';
 import chalk from 'chalk';
+import boxen from 'boxen';
 
-/*
-  Define the server schema (without triggering validation immediately).
-*/
 const serverSchema = {
   // Database
   POSTGRES_USER: z.string().min(1),
@@ -35,91 +33,7 @@ const serverSchema = {
   NODE_ENV: z.enum(['development', 'production']).default('development'),
 };
 
-/*
-  Instead of creating the env schema at the top level, we expose a function
-  that creates the schema using the runtime environment provided.
-*/
-export function getEnvSchema(runtimeEnv) {
-  return createEnv({
-    server: serverSchema,
-    runtimeEnv,
-  });
-}
-
-export async function createEnvFiles(projectRoot) {
-  const envType = await select({
-    message: 'How would you like to configure environment variables?',
-    options: [
-      { value: 'automatic', label: 'Automatic', hint: 'Use default development configuration' },
-      { value: 'manual', label: 'Manual', hint: 'Configure each variable manually' },
-    ],
-  });
-
-  if (isCancel(envType)) {
-    outro(chalk.yellow('Operation cancelled'));
-    process.exit(0);
-  }
-
-  if (envType === 'automatic') {
-    return createAutomaticEnvFiles(projectRoot);
-  }
-  return createManualEnvFiles(projectRoot);
-}
-
-async function createAutomaticEnvFiles(projectRoot) {
-  const spinner = ora({
-    text: 'Creating environment files...',
-    color: 'cyan',
-  }).start();
-
-  const REDIS_PASSWORD = 'zephyrredis';
-  const REDIS_HOST = 'localhost';
-  const REDIS_PORT = '6379';
-  const MINIO_HOST = 'localhost';
-  const MINIO_PORT = '9000';
-
-  const webEnvContent = `
-# Database
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=postgres
-POSTGRES_DB=zephyr
-POSTGRES_PORT=5433
-POSTGRES_HOST=localhost
-DATABASE_URL=postgresql://postgres:postgres@localhost:5433/zephyr?schema=public
-POSTGRES_PRISMA_URL=postgresql://postgres:postgres@localhost:5433/zephyr?schema=public
-POSTGRES_URL_NON_POOLING=postgresql://postgres:postgres@localhost:5433/zephyr?schema=public
-
-# Redis
-REDIS_PASSWORD=${REDIS_PASSWORD}
-REDIS_PORT=${REDIS_PORT}
-REDIS_HOST=${REDIS_HOST}
-REDIS_URL=redis://:${REDIS_PASSWORD}@${REDIS_HOST}:${REDIS_PORT}/0
-
-# MinIO
-MINIO_ROOT_USER=minioadmin
-MINIO_ROOT_PASSWORD=minioadmin
-MINIO_BUCKET_NAME=uploads
-MINIO_PORT=${MINIO_PORT}
-MINIO_CONSOLE_PORT=9001
-MINIO_HOST=${MINIO_HOST}
-MINIO_ENDPOINT=http://${MINIO_HOST}:${MINIO_PORT}
-NEXT_PUBLIC_MINIO_ENDPOINT=http://localhost:${MINIO_PORT}
-MINIO_ENABLE_OBJECT_LOCKING=on
-
-# Application
-JWT_SECRET=zephyrjwtsupersecret
-JWT_EXPIRES_IN=7d
-NEXT_PUBLIC_PORT=3000
-NEXT_PUBLIC_URL=http://localhost:3000
-NEXT_PUBLIC_SITE_URL=http://localhost:3000
-
-#Misc
-NODE_ENV=development
-NEXT_TELEMETRY_DISABLED=1
-TURBO_TELEMERY_DISABLED=1
-`.trim();
-
-  const dbEnvContent = `
+const DEFAULT_DB_ENV = `
 # Database URLs for Prisma
 DATABASE_URL=postgresql://postgres:postgres@localhost:5433/zephyr
 POSTGRES_PRISMA_URL=postgresql://postgres:postgres@localhost:5433/zephyr
@@ -133,132 +47,230 @@ POSTGRES_PORT=5433
 POSTGRES_HOST=localhost
 `.trim();
 
-  try {
-    const webEnvPath = path.join(projectRoot, 'apps/web/.env');
-    await fs.ensureDir(path.dirname(webEnvPath));
-    await fs.writeFile(webEnvPath, webEnvContent);
+const DEFAULT_ENV_CONFIG = {
+  REDIS_PASSWORD: 'zephyrredis',
+  REDIS_HOST: 'localhost',
+  REDIS_PORT: '6379',
+  MINIO_HOST: 'localhost',
+  MINIO_PORT: '9000',
+  MINIO_ROOT_USER: 'minioadmin',
+  MINIO_ROOT_PASSWORD: 'minioadmin',
+  JWT_SECRET: 'zephyrjwtsupersecret',
+};
 
-    const dbEnvPath = path.join(projectRoot, 'packages/db/.env');
-    await fs.ensureDir(path.dirname(dbEnvPath));
-    await fs.writeFile(dbEnvPath, dbEnvContent);
-
-    spinner.succeed('Environment files created successfully');
-    return { web: webEnvPath, db: dbEnvPath };
-  } catch (error) {
-    spinner.fail(`Failed to create environment files: ${error.message}`);
-    throw error;
-  }
+export function getEnvSchema(runtimeEnv) {
+  return createEnv({
+    server: serverSchema,
+    runtimeEnv,
+  });
 }
 
-async function createManualEnvFiles(projectRoot) {
+export async function createEnvFiles(projectRoot) {
   const envPaths = {
     web: path.join(projectRoot, 'apps/web/.env'),
     db: path.join(projectRoot, 'packages/db/.env'),
   };
 
-  const defaultValues = {
-    POSTGRES_USER: 'postgres',
-    POSTGRES_PASSWORD: 'postgres',
-    POSTGRES_DB: 'zephyr',
-    REDIS_PASSWORD: 'zephyrredis',
-    MINIO_ROOT_USER: 'minioadmin',
-    MINIO_ROOT_PASSWORD: 'minioadmin',
-    JWT_SECRET: 'zephyrjwtsupersecret',
-  };
+  const existingEnvs = await checkExistingEnvFiles(envPaths);
 
-  console.log(chalk.blue('\nConfiguring environment variables manually:'));
-  console.log(chalk.yellow('Press Enter to use default values\n'));
-
-  const envConfigs = {};
-
-  for (const [key, defaultValue] of Object.entries(defaultValues)) {
-    const value = await text({
-      message: `Enter ${key}:`,
-      defaultValue,
-      validate: (input) => {
-        try {
-          serverSchema[key].parse(input);
-          return;
-        } catch (error) {
-          return error.message;
-        }
-      },
-    });
-
-    if (isCancel(value)) {
-      outro(chalk.yellow('Operation cancelled'));
-      process.exit(0);
-    }
-
-    envConfigs[key] = value;
+  if (existingEnvs.length > 0) {
+    return await handleExistingEnvFiles(projectRoot, envPaths, existingEnvs);
   }
 
-  const spinner = ora({
-    text: 'Creating environment files...',
-    color: 'cyan',
-  }).start();
+  return await createNewEnvFiles(projectRoot, envPaths);
+}
+
+async function checkExistingEnvFiles(envPaths) {
+  const existing = [];
+  for (const [name, path] of Object.entries(envPaths)) {
+    if (await fs.pathExists(path)) {
+      existing.push(name);
+    }
+  }
+  return existing;
+}
+
+async function handleExistingEnvFiles(projectRoot, envPaths, existingEnvs) {
+  console.log(
+    boxen(
+      chalk.yellow(
+        [
+          'Existing environment files found!',
+          '',
+          ...existingEnvs.map((env) => `📄 ${env}/.env`),
+          '',
+          'Options:',
+          '1. Overwrite - Replace with new configuration',
+          '2. Backup & Create New - Save existing as .env.backup',
+          '3. Keep Existing - Skip creating new env files',
+        ].join('\n'),
+      ),
+      {
+        padding: 1,
+        margin: 1,
+        borderStyle: 'round',
+        borderColor: 'yellow',
+      },
+    ),
+  );
+
+  const action = await select({
+    message: 'How would you like to handle existing env files?',
+    options: [
+      { value: 'overwrite', label: 'Overwrite', hint: 'Replace existing files' },
+      { value: 'backup', label: 'Backup & Create New', hint: 'Save existing as .env.backup' },
+      { value: 'keep', label: 'Keep Existing', hint: 'Skip creation' },
+    ],
+  });
+
+  if (isCancel(action)) {
+    outro(chalk.yellow('Operation cancelled'));
+    process.exit(0);
+  }
+
+  const s = ora({ text: 'Processing environment files...', color: 'cyan' }).start();
 
   try {
-    const webEnvContent = generateWebEnvContent(envConfigs);
-    const dbEnvContent = generateDbEnvContent(envConfigs);
+    switch (action) {
+      case 'overwrite':
+        await createNewEnvFiles(projectRoot, envPaths);
+        s.succeed('Environment files overwritten');
+        break;
 
-    await fs.ensureDir(path.dirname(envPaths.web));
-    await fs.ensureDir(path.dirname(envPaths.db));
-    await fs.writeFile(envPaths.web, webEnvContent);
-    await fs.writeFile(envPaths.db, dbEnvContent);
+      case 'backup':
+        for (const [name, path] of Object.entries(envPaths)) {
+          if (await fs.pathExists(path)) {
+            await fs.move(path, `${path}.backup`);
+          }
+        }
+        await createNewEnvFiles(projectRoot, envPaths);
+        s.succeed('Existing files backed up and new files created');
+        break;
 
-    spinner.succeed('Environment files created successfully');
-    return envPaths;
+      case 'keep':
+        s.succeed('Keeping existing environment files');
+        break;
+    }
+
+    return { action, paths: envPaths };
   } catch (error) {
-    spinner.fail(`Failed to create environment files: ${error.message}`);
+    s.fail(`Failed to process env files: ${error.message}`);
     throw error;
   }
 }
 
-function generateWebEnvContent(configs) {
+async function createNewEnvFiles(projectRoot, envPaths) {
+  const setupType = await select({
+    message: 'How would you like to configure environment variables?',
+    options: [
+      { value: 'automatic', label: 'Automatic', hint: 'Use default development configuration' },
+      { value: 'manual', label: 'Manual', hint: 'Configure each variable manually' },
+    ],
+  });
+
+  if (isCancel(setupType)) {
+    outro(chalk.yellow('Operation cancelled'));
+    process.exit(0);
+  }
+
+  const s = ora({ text: 'Creating environment files...', color: 'cyan' }).start();
+
+  try {
+    let config = DEFAULT_ENV_CONFIG;
+
+    if (setupType === 'manual') {
+      config = await getManualConfig();
+    }
+
+    await fs.ensureDir(path.dirname(envPaths.web));
+    await fs.ensureDir(path.dirname(envPaths.db));
+    await fs.writeFile(envPaths.web, generateWebEnvContent(config));
+    await fs.writeFile(envPaths.db, DEFAULT_DB_ENV);
+
+    s.succeed('Environment files created successfully');
+    return { type: setupType, paths: envPaths };
+  } catch (error) {
+    s.fail(`Failed to create environment files: ${error.message}`);
+    throw error;
+  }
+}
+
+async function getManualConfig() {
+  console.log(chalk.blue('\nConfiguring environment variables:'));
+  console.log(chalk.yellow('Press Enter to use default values\n'));
+
+  const config = { ...DEFAULT_ENV_CONFIG };
+
+  for (const [key, defaultValue] of Object.entries(config)) {
+    if (serverSchema[key]) {
+      const value = await text({
+        message: `Enter ${key}:`,
+        defaultValue,
+        validate: (input) => {
+          try {
+            serverSchema[key].parse(input);
+            return;
+          } catch (error) {
+            return error.message;
+          }
+        },
+      });
+
+      if (isCancel(value)) {
+        outro(chalk.yellow('Operation cancelled'));
+        process.exit(0);
+      }
+
+      config[key] = value;
+    }
+  }
+
+  return config;
+}
+
+function generateWebEnvContent(config) {
   return `
 # Database
-POSTGRES_USER=${configs.POSTGRES_USER}
-POSTGRES_PASSWORD=${configs.POSTGRES_PASSWORD}
-POSTGRES_DB=${configs.POSTGRES_DB}
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
+POSTGRES_DB=zephyr
 POSTGRES_PORT=5433
 POSTGRES_HOST=localhost
-DATABASE_URL=postgresql://${configs.POSTGRES_USER}:${configs.POSTGRES_PASSWORD}@localhost:5433/${configs.POSTGRES_DB}?schema=public
+DATABASE_URL=postgresql://postgres:postgres@localhost:5433/zephyr?schema=public
+POSTGRES_PRISMA_URL=postgresql://postgres:postgres@localhost:5433/zephyr?schema=public
+POSTGRES_URL_NON_POOLING=postgresql://postgres:postgres@localhost:5433/zephyr?schema=public
 
 # Redis
-REDIS_PASSWORD=${configs.REDIS_PASSWORD}
-REDIS_PORT=6379
-REDIS_HOST=localhost
-REDIS_URL=redis://:${configs.REDIS_PASSWORD}@localhost:6379/0
+REDIS_PASSWORD=${config.REDIS_PASSWORD}
+REDIS_PORT=${config.REDIS_PORT}
+REDIS_HOST=${config.REDIS_HOST}
+REDIS_URL=redis://:${config.REDIS_PASSWORD}@${config.REDIS_HOST}:${config.REDIS_PORT}/0
 
 # MinIO
-MINIO_ROOT_USER=${configs.MINIO_ROOT_USER}
-MINIO_ROOT_PASSWORD=${configs.MINIO_ROOT_PASSWORD}
+MINIO_ROOT_USER=${config.MINIO_ROOT_USER}
+MINIO_ROOT_PASSWORD=${config.MINIO_ROOT_PASSWORD}
 MINIO_BUCKET_NAME=uploads
-MINIO_PORT=9000
+MINIO_PORT=${config.MINIO_PORT}
 MINIO_CONSOLE_PORT=9001
-MINIO_ENDPOINT=http://localhost:9000
+MINIO_HOST=${config.MINIO_HOST}
+MINIO_ENDPOINT=http://${config.MINIO_HOST}:${config.MINIO_PORT}
+NEXT_PUBLIC_MINIO_ENDPOINT=http://localhost:${config.MINIO_PORT}
+MINIO_ENABLE_OBJECT_LOCKING=on
 
 # Application
-JWT_SECRET=${configs.JWT_SECRET}
+JWT_SECRET=${config.JWT_SECRET}
+JWT_EXPIRES_IN=7d
+NEXT_PUBLIC_PORT=3000
+NEXT_PUBLIC_URL=http://localhost:3000
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
+
+#Misc
 NODE_ENV=development
+NEXT_TELEMETRY_DISABLED=1
+TURBO_TELEMERY_DISABLED=1
 `.trim();
 }
 
-function generateDbEnvContent(configs) {
-  return `
-DATABASE_URL=postgresql://${configs.POSTGRES_USER}:${configs.POSTGRES_PASSWORD}@localhost:5433/${configs.POSTGRES_DB}
-POSTGRES_USER=${configs.POSTGRES_USER}
-POSTGRES_PASSWORD=${configs.POSTGRES_PASSWORD}
-POSTGRES_DB=${configs.POSTGRES_DB}
-`.trim();
-}
-
-/*
-  validateEnvFiles now defers schema validation to runtime.
-  It reads the .env files, parses their content, and then uses getEnvSchema()
-  to validate the values.
-*/
 export async function validateEnvFiles(projectRoot) {
   const envPaths = {
     web: path.join(projectRoot, 'apps/web/.env'),

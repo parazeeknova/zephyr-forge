@@ -7,6 +7,7 @@ export default defineConfig({
     'cli/commands/dev': 'src/cli/commands/dev.js',
     'lib/services': 'src/lib/services.js',
     'lib/docker': 'src/lib/docker.js',
+    'lib/handler': 'src/lib/handler.js',
     'lib/utils': 'src/lib/utils.js',
     'lib/ui': 'src/lib/ui.js',
     'lib/env': 'src/lib/env.js',

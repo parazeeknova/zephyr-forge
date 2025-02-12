@@ -13,6 +13,7 @@ import {
 import { validateEnvFiles } from '../../lib/env.js';
 import { createServiceStatusTable, showCompletionMessage } from '../../lib/ui.js';
 import { findProjectRoot } from '../../lib/utils.js';
+import fs from 'fs-extra';
 
 const REQUIRED_FILES = ['docker-compose.dev.yml', '.env', 'package.json'];
 

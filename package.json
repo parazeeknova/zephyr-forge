@@ -9,9 +9,7 @@
     "zephyr-forge": "./dist/module/cli/index.js"
   },
   "main": "./dist/module/index.js",
-  "files": [
-    "dist"
-  ],
+  "files": ["dist"],
   "scripts": {
     "dev": "concurrently \"bun run dev:server\" \"bun run dev:web\"",
     "dev:server": "bun run src/server.js",
@@ -59,6 +57,11 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@auto-it/all-contributors": "^11.3.0",
+    "@auto-it/conventional-commits": "^11.3.0",
+    "@auto-it/first-time-contributor": "^11.3.0",
+    "@auto-it/npm": "^11.3.0",
+    "@auto-it/released": "^11.3.0",
     "@biomejs/biome": "^1.9.4",
     "auto": "^11.3.0",
     "concurrently": "^9.1.2",
