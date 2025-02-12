@@ -9,26 +9,27 @@
 	"repo": "zephyr-forge",
 	"name": "parazeeknova",
 	"email": "github-actions[bot]@users.noreply.github.com",
-	"labels": {
-		"major": {
-			"title": "Breaking Change",
+	"labels": [
+		{
+			"name": "major",
+			"changelogTitle": "💥 Breaking Changes",
 			"description": "Introduces a breaking API change",
-			"releaseType": "major"
+			"releaseType": "major",
+			"color": "#FF0000"
 		},
-		"minor": {
-			"title": "Enhancement",
+		{
+			"name": "minor",
+			"changelogTitle": "🚀 Features",
 			"description": "Adds a new feature or enhancement",
-			"releaseType": "minor"
+			"releaseType": "minor",
+			"color": "#00FF00"
 		},
-		"patch": {
-			"title": "Bug Fix",
+		{
+			"name": "patch",
+			"changelogTitle": "🐛 Fixes",
 			"description": "Fixes a bug or makes a minor improvement",
-			"releaseType": "patch"
-		},
-		"documentation": {
-			"title": "📝 Documentation",
-			"description": "Changes only affect the documentation",
-			"releaseType": "none"
+			"releaseType": "patch",
+			"color": "#0000FF"
 		}
-	}
+	]
 }
