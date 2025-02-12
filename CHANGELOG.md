@@ -1,3 +1,15 @@
+# v1.0.16 (Wed Feb 12 2025)
+
+#### ⚠️ Pushed to `main`
+
+- fix[PACKAGE]: Fix github package version conflict ([@parazeeknova](https://github.com/parazeeknova))
+
+#### Authors: 1
+
+- Harsh ([@parazeeknova](https://github.com/parazeeknova))
+
+---
+
 # v1.0.15 (Wed Feb 12 2025)
 
 #### 🐛 Bug Fix

@@ -9,7 +9,9 @@
     "zephyr-forge": "./dist/module/cli/index.js"
   },
   "main": "./dist/module/index.js",
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "dev": "concurrently \"bun run dev:server\" \"bun run dev:web\"",
     "dev:server": "bun run src/server.js",
