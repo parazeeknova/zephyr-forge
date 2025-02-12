@@ -23,30 +23,20 @@ Zephyr Forge is a powerful utility designed to streamline the setup process for 
 
 ## Getting Started 🌱
 
-<div align="center">
-
-###### *<div align="center"><sub>With NPM</sub></div>*
+###### *<div align="center"><sub>Using NPM</sub></div>*
 
 ```bash
-npx @parazeeknova/zephyr-forge init
+# Create a new Zephyr project
+npx zephyr-forge@latest init
 # or use github packages
 npx @parazeeknova/zephyr-forge@latest init
+
+# Initialize and start your development environment (First time recommended)
+npx zephyr-forge@latest setup
+
+# Start development for an existing project
+npx zephyr-forge@latest dev
 ```
-
-###### *<div align="center"><sub>Linux & MacOS</sub></div>*
-
-```bash
-curl -fsSL https://forge.zephyyrr.in/install.sh | bash
-```
-
-###### *<div align="center"><sub>Windows</sub></div>*
-
-```powershell
-irm https://forge.zephyyrr.in/install.ps1 | iex
-```
-
-</div>
-
 
 ## Features 🎉
 
@@ -66,7 +56,9 @@ irm https://forge.zephyyrr.in/install.ps1 | iex
 
 <div align="center">
 
-  ###### *<div align="left"><sub>// Forge Homepage - <a href="https://forge.zephyyrr.in">🔗 link</a></sub></div>*
+  ##### *<div align="left"><sub>// NPMjs Package - <a href="https://www.npmjs.com/package/zephyr-forge">🔗 npmjs.com/zephyr-forge</a></sub></div>*
+
+  ##### *<div align="left"><sub>// Forge Homepage - <a href="https://forge.zephyyrr.in">🔗 link</a></sub></div>*
 
   <a href="https://forge.zephyyrr.in">
     <img src="https://github.com/parazeeknova/zephyr-forge/blob/main/.github/assets/forge.png" alt="Logo" width="90%">
