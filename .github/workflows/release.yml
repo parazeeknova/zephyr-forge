@@ -6,67 +6,54 @@ on:
 
 permissions:
   contents: write
+  packages: write
+  issues: write
+  pull-requests: write
 
 jobs:
   release:
     runs-on: ubuntu-latest
+    if: "!contains(github.event.head_commit.message, 'ci skip') && !contains(github.event.head_commit.message, 'skip ci')"
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           token: ${{ secrets.GH_TOKEN }}
 
+      - name: Configure Git
+        run: |
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
+
       - name: Setup Bun
-        uses: oven-sh/setup-bun@v1
+        uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
 
-      - name: Setup Git User
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18.x'
+          registry-url: 'https://registry.npmjs.org/'
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: bun install
 
       - name: Build
-        run: |
-          bun run build:web
-          bun run build:cli
-        env:
-          NODE_ENV: production
+        run: bun run build
 
       - name: Update package.json for publishing
         run: |
-          # Save original package.json
           cp package.json package.json.orig
-          # Update package.json for GitHub Packages
-          jq '.name = "@parazeeknova/zephyr-forge" | .publishConfig.registry = "https://npm.pkg.github.com"' package.json > tmp.json
+          jq '.publishConfig.registry = "https://registry.npmjs.org/"' package.json > tmp.json
           mv tmp.json package.json
-          # Stage the modified package.json
-          git add package.json
-
-      - name: Prepare for Release
-        run: |
-          # Save original package.json
-          cp package.json package.json.orig
-          # Update package.json for GitHub Packages
-          jq '.name = "@parazeeknova/zephyr-forge" | .publishConfig.registry = "https://npm.pkg.github.com"' package.json > tmp.json
-          mv tmp.json package.json
-          # Stage and commit the modified package.json
-          git add package.json
-          git commit -m "chore: update package.json for release [skip ci]" || true
+          git add package.json package.json.orig
 
       - name: Release
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: |
-          # Add package.json.orig to git index to prevent "unclean directory" error
-          git add package.json.orig
-          # Run auto shipit
-          bunx auto shipit
+        run: bunx auto shipit
 
       - name: Restore original package.json
         if: always()

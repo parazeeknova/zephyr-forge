@@ -34,19 +34,7 @@ jobs:
         run: bun install
 
       - name: Build
-        run: |
-          bun run build:web
-          bun run build:cli
-        env:
-          NODE_ENV: production
-
-      - name: Skip postinstall for publishing
-        run: |
-          # Save original package.json
-          cp package.json package.json.orig
-          # Remove postinstall script
-          jq '.scripts.postinstall = null' package.json > tmp.json
-          mv tmp.json package.json
+        run: bun run build
 
       - name: Configure npm
         run: |
@@ -55,6 +43,7 @@ jobs:
 
       - name: Update package.json for publishing
         run: |
+          cp package.json package.json.orig
           jq '.name = "@parazeeknova/zephyr-forge" | .publishConfig.registry = "https://npm.pkg.github.com"' package.json > tmp.json
           mv tmp.json package.json
 
