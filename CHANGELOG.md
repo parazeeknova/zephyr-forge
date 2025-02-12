@@ -1,3 +1,17 @@
+# v1.0.17 (Wed Feb 12 2025)
+
+#### ⚠️ Pushed to `main`
+
+- chore[LINKS]: Updated forge commands & links ([@parazeeknova](https://github.com/parazeeknova))
+- fix[REVERT]: Revert back to old fix web commit ([@parazeeknova](https://github.com/parazeeknova))
+- fix[WEB]: Fixing web container for coolify ([@parazeeknova](https://github.com/parazeeknova))
+
+#### Authors: 1
+
+- Harsh ([@parazeeknova](https://github.com/parazeeknova))
+
+---
+
 # v1.0.16 (Wed Feb 12 2025)
 
 #### ⚠️ Pushed to `main`
