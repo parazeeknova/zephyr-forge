@@ -40,7 +40,16 @@ jobs:
         run: bun install
 
       - name: Build
-        run: bun run build
+        run: |
+          bun run build:web
+          bun run build:cli
+        env:
+          NODE_ENV: production
+
+      - name: Skip postinstall for release
+        run: |
+          jq '.scripts.postinstall = null' package.json > tmp.json
+          mv tmp.json package.json
 
       - name: Release
         env:
