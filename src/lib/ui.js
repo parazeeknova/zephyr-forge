@@ -1,11 +1,11 @@
 import chalk from 'chalk';
-import gradient from 'gradient-string';
 import boxen from 'boxen';
 import figlet from 'figlet';
 import ora from 'ora';
 import { table } from 'table';
 import prettyBytes from 'pretty-bytes';
 import prettyMs from 'pretty-ms';
+import { pastel, morning, vice } from 'gradient-string';
 
 const BOXEN_CONFIG = {
   padding: 1,
@@ -27,21 +27,55 @@ export async function displayBanner(type = 'default') {
     default: {
       text: 'ZEPHYR',
       font: 'ANSI Shadow',
-      gradient: gradient.pastel,
+      gradient: pastel,
+      description: [
+        '🚀 Welcome to Zephyr Forge - Your Modern Development Environment Setup Tool',
+        '',
+        '✨ What this tool does:',
+        '• Sets up a complete development environment',
+        '• Manages Docker containers for your services',
+        '• Configures databases, caching, and storage',
+        '• Handles environment variables and configuration',
+        '',
+        '🛠️ Features:',
+        '• PostgreSQL Database',
+        '• Redis Cache',
+        '• MinIO Object Storage',
+        '• Automatic environment configuration',
+        '• Development tools and utilities',
+        '',
+        chalk.dim('Run with --help for more information'),
+      ].join('\n'),
     },
     setup: {
       text: 'SETUP',
       font: 'Slant',
-      gradient: gradient.morning,
+      gradient: morning,
+      description: [
+        '🔧 Setting up your Zephyr development environment',
+        '',
+        '• Initializing project structure',
+        '• Configuring services',
+        '• Setting up environment variables',
+        '• Preparing development containers',
+      ].join('\n'),
     },
     dev: {
       text: 'DEV',
       font: 'Speed',
-      gradient: gradient.vice,
+      gradient: vice,
+      description: [
+        '👩‍💻 Starting development environment',
+        '',
+        '• Managing service containers',
+        '• Checking service health',
+        '• Setting up development tools',
+        '• Preparing hot-reload',
+      ].join('\n'),
     },
   };
 
-  const { text, font, gradient: gradientStyle } = banners[type] || banners.default;
+  const { text, font, gradient: gradientStyle, description } = banners[type] || banners.default;
 
   const figletText = figlet.textSync(text, {
     font,
@@ -51,7 +85,7 @@ export async function displayBanner(type = 'default') {
   const gradientTitle = gradientStyle.multiline(figletText);
   console.clear();
   console.log(
-    boxen(gradientTitle, {
+    boxen([gradientTitle, '', description].join('\n'), {
       ...BOXEN_CONFIG,
       title: '🚀 Zephyr Forge',
       titleAlignment: 'center',

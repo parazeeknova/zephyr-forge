@@ -4,12 +4,13 @@ import fs from 'fs-extra';
 import path from 'node:path';
 import chalk from 'chalk';
 import os from 'node:os';
-import { findProjectRoot, checkRequirements } from '../lib/utils.js';
+import { findProjectRoot, checkRequirements, checkDependencies } from '../lib/utils.js';
 import { displayBanner } from '../lib/ui.js';
 import { setupCommand } from './commands/setup.js';
 import { devCommand } from './commands/dev.js';
 import { checkDocker } from '../lib/docker.js';
 import { handleDirectorySetup, ensureParentDirectory } from '../lib/handler.js';
+import boxen from 'boxen';
 
 const sleep = (ms = 1000) => setTimeout(ms);
 
@@ -55,12 +56,178 @@ async function getPreferredLocations() {
   return locations;
 }
 
+function showHelp() {
+  console.log(
+    boxen(
+      [
+        chalk.bold('🚀 Zephyr Forge CLI'),
+        '',
+        chalk.yellow('Usage:'),
+        '  npx zephyr-forge@latest [command] [options]',
+        '',
+        chalk.yellow('Commands:'),
+        '  setup         Initialize and start development environment',
+        '  init          Create a new Zephyr project',
+        '  dev           Start development environment for existing project',
+        '',
+        chalk.yellow('Options:'),
+        '  --help, -h    Show this help message',
+        '  --version, -v Show version number',
+        '',
+        chalk.yellow('Examples:'),
+        '  npx zephyr-forge@latest setup    # Setup new project',
+        '  npx zephyr-forge@latest init     # Initialize project only',
+        '  npx zephyr-forge@latest dev      # Start development',
+        '',
+        chalk.yellow('Documentation:'),
+        '  https://github.com/parazeeknova/zephyr-forge',
+        '',
+        chalk.yellow('Environment Setup:'),
+        '  • Requires Docker, pnpm, and bun',
+        '  • Automatically configures development containers',
+        '  • Sets up PostgreSQL, Redis, and MinIO',
+        '',
+        chalk.yellow('Project Structure:'),
+        '  • /apps          Application code',
+        '  • /packages      Shared packages',
+        '  • /docker        Container configurations',
+        '  • /prisma        Database schemas',
+        '',
+        chalk.yellow('Additional Information:'),
+        '  • Use --help with any command for more details',
+        '  • Check documentation for advanced configuration',
+        '  • Report issues on GitHub',
+      ].join('\n'),
+      {
+        padding: 1,
+        margin: 1,
+        borderStyle: 'round',
+        borderColor: 'blue',
+        title: '📚 Help & Documentation',
+        titleAlignment: 'center',
+      },
+    ),
+  );
+}
+
+function showCommandHelp(command) {
+  const helpContent = {
+    setup: [
+      chalk.bold('🛠️  Setup Command'),
+      '',
+      chalk.yellow('Description:'),
+      '  Initialize a new Zephyr project and set up development environment',
+      '',
+      chalk.yellow('Usage:'),
+      '  npx zephyr-forge@latest setup [options]',
+      '',
+      chalk.yellow('Process:'),
+      '  1. Clones Zephyr repository',
+      '  2. Sets up environment configuration',
+      '  3. Initializes Docker containers',
+      '  4. Configures development services',
+      '',
+      chalk.yellow('Services Setup:'),
+      '  • PostgreSQL Database',
+      '  • Redis Cache',
+      '  • MinIO Object Storage',
+      '',
+      chalk.yellow('Requirements:'),
+      '  • Docker running',
+      '  • pnpm installed',
+      '  • bun installed',
+    ],
+    init: [
+      chalk.bold('🎯 Init Command'),
+      '',
+      chalk.yellow('Description:'),
+      '  Create a new Zephyr project without starting development environment',
+      '',
+      chalk.yellow('Usage:'),
+      '  npx zephyr-forge@latest init [project-name]',
+      '',
+      chalk.yellow('Options:'),
+      '  project-name    Name of your project (optional)',
+      '',
+      chalk.yellow('Process:'),
+      '  1. Creates project directory',
+      '  2. Sets up basic configuration',
+      '  3. Initializes git repository',
+      '  4. Installs dependencies',
+    ],
+    dev: [
+      chalk.bold('👩‍💻 Dev Command'),
+      '',
+      chalk.yellow('Description:'),
+      '  Start development environment for existing Zephyr project',
+      '',
+      chalk.yellow('Usage:'),
+      '  npx zephyr-forge@latest dev',
+      '',
+      chalk.yellow('Process:'),
+      '  1. Verifies project structure',
+      '  2. Starts Docker containers',
+      '  3. Checks service health',
+      '  4. Initializes development environment',
+      '',
+      chalk.yellow('Available Services:'),
+      '  • PostgreSQL: localhost:5433',
+      '  • Redis: localhost:6379',
+      '  • MinIO Console: http://localhost:9001',
+    ],
+  };
+
+  if (helpContent[command]) {
+    console.log(
+      boxen(helpContent[command].join('\n'), {
+        padding: 1,
+        margin: 1,
+        borderStyle: 'round',
+        borderColor: 'cyan',
+        title: `Help: ${command}`,
+        titleAlignment: 'center',
+      }),
+    );
+  } else {
+    showHelp();
+  }
+}
+
 async function main() {
   try {
+    const args = process.argv.slice(2);
+    const helpFlags = ['--help', '-h'];
+    const validCommands = ['setup', 'init', 'dev'];
+    const versionFlags = ['--version', '-v'];
+
+    if (args.length === 0) {
+      await displayBanner();
+      await sleep(500);
+      showHelp();
+      process.exit(0);
+    }
+
+    if (args.some((arg) => versionFlags.includes(arg))) {
+      console.log(`Zephyr Forge v${process.env.npm_package_version}` || '1.0.16');
+      process.exit(0);
+    }
+
+    if (args.some((arg) => helpFlags.includes(arg))) {
+      const command = args[0];
+      if (validCommands.includes(command)) {
+        showCommandHelp(command);
+      } else {
+        await displayBanner();
+        await sleep(500);
+        showHelp();
+      }
+      process.exit(0);
+    }
+
     await displayBanner();
     await sleep(500);
 
-    const validCommands = ['setup', 'init', 'dev'];
+    await checkDependencies();
     const command = process.argv[2];
 
     if (!command || !validCommands.includes(command)) {
