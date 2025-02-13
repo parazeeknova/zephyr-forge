@@ -4,8 +4,9 @@ import path from 'node:path';
 import { setTimeout } from 'node:timers/promises';
 import retry from 'async-retry';
 import chalk from 'chalk';
-import { select, spinner } from '@clack/prompts';
+import { select, spinner, confirm, isCancel } from '@clack/prompts';
 import boxen from 'boxen';
+import { createSpinner } from './ui.js';
 
 export const sleep = (ms) => setTimeout(ms);
 
@@ -346,5 +347,162 @@ export async function cloneRepository(targetDir) {
     return true;
   } catch (error) {
     throw new Error(`Failed to clone repository: ${error.message}`);
+  }
+}
+
+export async function runPostSetupTasks(projectRoot, depsInstalled) {
+  const s = createSpinner('Running post-setup tasks...');
+  s.start();
+
+  try {
+    if (depsInstalled) {
+      const runPrisma = await confirm({
+        message: 'Generate Prisma client? (Recommended)',
+        initialValue: true,
+      });
+
+      if (isCancel(runPrisma)) {
+        outro(chalk.yellow('Operation cancelled'));
+        process.exit(0);
+      }
+
+      if (runPrisma) {
+        s.text = 'Generating Prisma client...';
+        try {
+          // First ensure we're in the db package directory
+          const dbPath = path.join(projectRoot, 'packages/db');
+          if (!(await fs.pathExists(path.join(dbPath, 'package.json')))) {
+            throw new Error('packages/db/package.json not found');
+          }
+
+          await execWithRetry('pnpm install', {
+            cwd: dbPath,
+            silent: true,
+          });
+
+          // Then run prisma generate
+          await execWithRetry('pnpm prisma generate', {
+            cwd: dbPath,
+            silent: false,
+          });
+        } catch (error) {
+          console.log(
+            boxen(
+              chalk.yellow(
+                [
+                  '⚠️ Prisma client generation failed',
+                  '',
+                  'You can generate it manually later using:',
+                  chalk.dim('cd packages/db'),
+                  chalk.dim('pnpm install'),
+                  chalk.dim('pnpm prisma generate'),
+                  '',
+                  'Error details:',
+                  chalk.red(error.message),
+                ].join('\n'),
+              ),
+              {
+                padding: 1,
+                margin: 1,
+                borderStyle: 'round',
+                borderColor: 'yellow',
+              },
+            ),
+          );
+
+          const skipPrisma = await confirm({
+            message: 'Continue without Prisma client?',
+            initialValue: false,
+          });
+
+          if (!skipPrisma) {
+            throw error;
+          }
+        }
+      }
+
+      // Biome Formatting
+      const runBiome = await confirm({
+        message: 'Format code with Biome? (Recommended)',
+        initialValue: true,
+      });
+
+      if (isCancel(runBiome)) {
+        outro(chalk.yellow('Operation cancelled'));
+        process.exit(0);
+      }
+
+      if (runBiome) {
+        s.text = 'Running code formatting...';
+        try {
+          await execWithRetry('pnpm run biome:fix', {
+            cwd: projectRoot,
+            silent: true,
+          });
+        } catch (error) {
+          console.log(chalk.yellow('Biome formatting failed, skipping...'));
+        }
+      }
+
+      // Git Add
+      if (runBiome) {
+        const runGitAdd = await confirm({
+          message: 'Save formatted changes with git? (Recommended)',
+          initialValue: true,
+        });
+
+        if (isCancel(runGitAdd)) {
+          outro(chalk.yellow('Operation cancelled'));
+          process.exit(0);
+        }
+
+        if (runGitAdd) {
+          s.text = 'Saving formatted changes...';
+          try {
+            await execWithRetry('git add .', {
+              cwd: projectRoot,
+              silent: true,
+            });
+          } catch (error) {
+            console.log(chalk.yellow('Git add failed, skipping...'));
+          }
+        }
+      }
+
+      s.succeed('Post-setup tasks completed');
+    } else {
+      s.stop();
+      console.log(
+        boxen(
+          chalk.yellow(
+            [
+              '⚠️ Manual Steps Required',
+              '',
+              'Please run these commands manually:',
+              '',
+              '1. Generate Prisma client:',
+              chalk.dim('   cd packages/db'),
+              chalk.dim('   pnpm install'),
+              chalk.dim('   pnpm prisma generate'),
+              '',
+              '2. Format code:',
+              chalk.dim('   pnpm run biome:fix'),
+              '',
+              '3. Save changes:',
+              chalk.dim('   git add .'),
+            ].join('\n'),
+          ),
+          {
+            padding: 1,
+            margin: 1,
+            borderStyle: 'round',
+            borderColor: 'yellow',
+          },
+        ),
+      );
+    }
+  } catch (error) {
+    s.fail(`Post-setup tasks failed: ${error.message}`);
+    throw error;
   }
 }

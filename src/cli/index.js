@@ -4,8 +4,13 @@ import fs from 'fs-extra';
 import path from 'node:path';
 import chalk from 'chalk';
 import os from 'node:os';
-import { findProjectRoot, checkRequirements, checkDependencies } from '../lib/utils.js';
-import { displayBanner } from '../lib/ui.js';
+import {
+  findProjectRoot,
+  checkRequirements,
+  checkDependencies,
+  runPostSetupTasks,
+} from '../lib/utils.js';
+import { displayBanner, showFinalOptions } from '../lib/ui.js';
 import { setupCommand } from './commands/setup.js';
 import { devCommand } from './commands/dev.js';
 import { checkDocker } from '../lib/docker.js';
@@ -575,6 +580,8 @@ async function main() {
         });
 
         await devCommand({ projectRoot: setupResult.path });
+        await runPostSetupTasks(setupResult.path, depChoice !== 'skip');
+        await showFinalOptions(setupResult.path);
         break;
       }
 
@@ -628,6 +635,8 @@ async function main() {
           process.exit(1);
         }
         await devCommand({ projectRoot });
+        await runPostSetupTasks(projectRoot, true);
+        await showFinalOptions(projectRoot);
         break;
       }
 

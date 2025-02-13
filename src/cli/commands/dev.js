@@ -1,7 +1,7 @@
 import { intro, outro, spinner, confirm, select, isCancel } from '@clack/prompts';
 import chalk from 'chalk';
 import path from 'node:path';
-import { displayBanner } from '../../lib/ui.js';
+import { displayBanner, showFinalOptions } from '../../lib/ui.js';
 import {
   checkContainerStatus,
   initializeServices,
@@ -12,7 +12,7 @@ import {
 } from '../../lib/services.js';
 import { validateEnvFiles } from '../../lib/env.js';
 import { createServiceStatusTable, showCompletionMessage } from '../../lib/ui.js';
-import { findProjectRoot } from '../../lib/utils.js';
+import { findProjectRoot, runPostSetupTasks } from '../../lib/utils.js';
 import fs from 'fs-extra';
 import boxen from 'boxen';
 
@@ -211,7 +211,7 @@ export async function devCommand(options) {
                 '3. Ensure all services are healthy',
                 '',
                 'You can do this later using:',
-                chalk.dim('docker-compose -f docker-compose.dev.yml up -d'),
+                chalk.dim('docker compose -f docker-compose.dev.yml --profile init up --build'),
               ].join('\n'),
             ),
             {
@@ -245,6 +245,9 @@ export async function devCommand(options) {
           },
           skipped: true,
         });
+
+        await runPostSetupTasks(options.projectRoot, true);
+        await showFinalOptions(options.projectRoot);
 
         outro(
           chalk.yellow('⚠️ Setup completed without services. Remember to initialize them manually.'),
@@ -358,8 +361,10 @@ export async function devCommand(options) {
       },
     });
 
-    outro(chalk.green('✨ Development environment is running!'));
+    await runPostSetupTasks(options.projectRoot, true);
+    await showFinalOptions(options.projectRoot);
 
+    outro(chalk.green('✨ Development environment is running!'));
     process.stdin.resume();
   } catch (error) {
     s.stop(chalk.red(`Error: ${error.message}`));
