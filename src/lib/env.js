@@ -441,11 +441,8 @@ async function fixEnvIssues(projectRoot, validation) {
     fixed: [],
     unfixed: [],
     backups: [],
+    created: [],
   };
-
-  if (validation.valid) {
-    return { message: 'No issues to fix', changes: [] };
-  }
 
   const envPaths = {
     web: path.join(projectRoot, 'apps/web/.env'),
@@ -453,39 +450,66 @@ async function fixEnvIssues(projectRoot, validation) {
   };
 
   for (const [name, filePath] of Object.entries(envPaths)) {
-    if (await fs.pathExists(filePath)) {
-      const backupPath = `${filePath}.backup-${Date.now()}`;
-      await fs.copy(filePath, backupPath);
-      results.backups.push(backupPath);
+    const dirPath = path.dirname(filePath);
+    if (!(await fs.pathExists(dirPath))) {
+      await fs.ensureDir(dirPath);
+      results.fixed.push(`Created directory: ${dirPath}`);
     }
   }
 
-  for (const { file, errors } of validation.errors) {
-    const filePath = envPaths[file];
+  for (const [name, filePath] of Object.entries(envPaths)) {
     if (!(await fs.pathExists(filePath))) {
-      results.unfixed.push(`Missing file: ${file}`);
-      continue;
-    }
+      try {
+        const content = name === 'web' ? generateWebEnvContent(DEFAULT_ENV_CONFIG) : DEFAULT_DB_ENV;
+        await fs.writeFile(filePath, content);
+        results.created.push(filePath);
+        results.fixed.push(`Created missing env file: ${name}/.env`);
+      } catch (error) {
+        results.unfixed.push(`Failed to create ${name}/.env: ${error.message}`);
+      }
+    } else {
+      const backupPath = `${filePath}.backup-${Date.now()}`;
+      await fs.copy(filePath, backupPath);
+      results.backups.push(backupPath);
+      let content = await fs.readFile(filePath, 'utf8');
+      let modified = false;
 
-    let content = await fs.readFile(filePath, 'utf8');
-    let modified = false;
+      const existingVars = Object.fromEntries(
+        content
+          .split('\n')
+          .filter((line) => line.trim() && !line.trim().startsWith('#'))
+          .map((line) => line.split('=').map((part) => part.trim())),
+      );
 
-    for (const error of errors) {
-      if (error.message.includes('missing')) {
-        const varName = error.message.split(':')[0].trim();
-        if (DEFAULT_ENV_CONFIG[varName]) {
-          content += `\n${varName}=${DEFAULT_ENV_CONFIG[varName]}`;
-          results.fixed.push(`Added missing ${varName} in ${file}`);
+      const template = name === 'web' ? generateWebEnvContent(DEFAULT_ENV_CONFIG) : DEFAULT_DB_ENV;
+      const templateVars = Object.fromEntries(
+        template
+          .split('\n')
+          .filter((line) => line.trim() && !line.trim().startsWith('#'))
+          .map((line) => line.split('=').map((part) => part.trim())),
+      );
+
+      for (const [key, value] of Object.entries(templateVars)) {
+        if (!existingVars[key]) {
+          content += `\n${key}=${value}`;
+          results.fixed.push(`Added missing variable ${key} in ${name}/.env`);
           modified = true;
-        } else {
-          results.unfixed.push(`Could not fix missing ${varName} in ${file}`);
         }
       }
-    }
 
-    if (modified) {
-      await fs.writeFile(filePath, content);
+      if (modified) {
+        await fs.writeFile(filePath, content);
+      }
     }
+  }
+
+  const newValidation = await validateEnvFiles(projectRoot);
+  if (!newValidation.valid) {
+    results.unfixed.push(
+      ...newValidation.errors.flatMap(({ file, errors }) =>
+        errors.map((err) => `${file}: ${err.message}`),
+      ),
+    );
   }
 
   return results;
@@ -495,22 +519,38 @@ function showFixReport(results) {
   const report = [
     chalk.bold('🔧 Environment Fix Report'),
     '',
-    chalk.yellow('Backups created:'),
-    ...results.backups.map((path) => `  • ${path}`),
+    results.created.length > 0
+      ? [chalk.green('Created files:'), ...results.created.map((file) => `  ✨ ${file}`), ''].join(
+          '\n',
+        )
+      : '',
+    results.backups.length > 0
+      ? [
+          chalk.yellow('Backups created:'),
+          ...results.backups.map((path) => `  💾 ${path}`),
+          '',
+        ].join('\n')
+      : '',
+    results.fixed.length > 0
+      ? [chalk.green('Fixed issues:'), ...results.fixed.map((fix) => `  ✓ ${fix}`), ''].join('\n')
+      : '',
+    results.unfixed.length > 0
+      ? [chalk.red('Unfixed issues:'), ...results.unfixed.map((issue) => `  ✗ ${issue}`), ''].join(
+          '\n',
+        )
+      : '',
     '',
-    chalk.green('Fixed issues:'),
-    ...results.fixed.map((fix) => `  ✓ ${fix}`),
-    '',
-    chalk.red('Unfixed issues:'),
-    ...results.unfixed.map((issue) => `  ✗ ${issue}`),
+    results.unfixed.length === 0
+      ? chalk.green('✨ All issues have been fixed!')
+      : chalk.yellow('⚠️  Some issues require manual attention'),
   ];
 
   console.log(
-    boxen(report.join('\n'), {
+    boxen(report.filter(Boolean).join('\n'), {
       padding: 1,
       margin: 1,
       borderStyle: 'round',
-      borderColor: 'blue',
+      borderColor: results.unfixed.length === 0 ? 'green' : 'yellow',
       title: '🛠️ Fix Results',
       titleAlignment: 'center',
     }),

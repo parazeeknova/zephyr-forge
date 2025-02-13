@@ -12,7 +12,6 @@ export async function setupCommand(options) {
 
   const s = spinner();
   try {
-    // Validate project structure
     s.start('Validating project structure');
     const structureValidation = await validateProjectStructure(options.projectRoot);
     if (!structureValidation.valid) {
@@ -20,12 +19,10 @@ export async function setupCommand(options) {
     }
     s.stop('Project structure valid');
 
-    // Check Docker
     s.start('Checking Docker environment');
     await checkDocker();
     s.stop('Docker environment ready');
 
-    // Setup environment files
     s.start('Setting up environment files');
     try {
       await createEnvFiles(options.projectRoot);
@@ -35,8 +32,10 @@ export async function setupCommand(options) {
       throw error;
     }
 
-    showCompletionMessage({ directory: options.projectRoot });
-    outro(chalk.green('✨ Setup complete! Run `zephyr-forge dev` to start development'));
+    if (!options.skipCompletion) {
+      showCompletionMessage({ directory: options.projectRoot });
+      outro(chalk.green('✨ Setup complete! Run `zephyr-forge dev` to start development'));
+    }
   } catch (error) {
     s.stop(chalk.red(`Error: ${error.message}`));
 

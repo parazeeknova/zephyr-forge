@@ -155,6 +155,43 @@ export class ProgressSpinner {
 }
 
 export function showCompletionMessage(options = {}) {
+  const { urls, skipped } = options;
+
+  if (skipped) {
+    console.log(
+      boxen(
+        chalk.yellow(
+          [
+            '⚠️ Setup completed with skipped services',
+            '',
+            'To complete setup manually:',
+            '',
+            '1. Initialize services:',
+            chalk.dim('   docker-compose -f docker-compose.dev.yml up -d'),
+            '',
+            '2. Verify services:',
+            chalk.dim('   docker ps'),
+            '',
+            '3. Check logs if needed:',
+            chalk.dim('   docker logs <container-name>'),
+            '',
+            'Services will be available at:',
+            ...Object.entries(urls).map(([name, url]) => `• ${name}: ${url}`),
+          ].join('\n'),
+        ),
+        {
+          padding: 1,
+          margin: 1,
+          borderStyle: 'round',
+          borderColor: 'yellow',
+          title: '🚧 Manual Setup Required',
+          titleAlignment: 'center',
+        },
+      ),
+    );
+    return;
+  }
+
   const message = [
     chalk.green('🎉 Setup Complete!'),
     '',

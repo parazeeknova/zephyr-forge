@@ -4,11 +4,10 @@ import path from 'node:path';
 import { setTimeout } from 'node:timers/promises';
 import retry from 'async-retry';
 import chalk from 'chalk';
-import { fileURLToPath } from 'node:url';
+import { select, spinner } from '@clack/prompts';
+import boxen from 'boxen';
 
 export const sleep = (ms) => setTimeout(ms);
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export async function checkDependencies() {
   const dependencies = [
@@ -41,16 +40,20 @@ export async function checkDependencies() {
       boxen(
         chalk.yellow(
           [
-            '⚠️  Missing Required Dependencies',
+            '⚠️  Optional Dependencies Check',
             '',
             ...missing.map(
               (dep) => `${chalk.bold(dep.name)} is not installed. You can install it by:`,
-              '',
-              `• Automatic: ${chalk.cyan(dep.installCmd)}`,
-              `• Manual: Visit ${chalk.cyan(dep.installUrl)}`,
-              '',
             ),
-            'Would you like to install the missing dependencies automatically?',
+            '',
+            'Installation options:',
+            ...missing.map((dep) =>
+              [
+                `${dep.name}:`,
+                `  • Automatic: ${chalk.cyan(dep.installCmd)}`,
+                `  • Manual: Visit ${chalk.cyan(dep.installUrl)}`,
+              ].join('\n'),
+            ),
           ].join('\n'),
         ),
         {
@@ -64,32 +67,110 @@ export async function checkDependencies() {
       ),
     );
 
-    const install = await confirm({
-      message: 'Install missing dependencies?',
-      initialValue: true,
+    const action = await select({
+      message: 'How would you like to proceed?',
+      options: [
+        { value: 'install', label: 'Install Missing', hint: 'Install all missing dependencies' },
+        { value: 'skip', label: 'Skip Installation', hint: '⚠️ Some features may be limited' },
+        { value: 'cancel', label: 'Cancel Setup', hint: 'Exit the setup process' },
+      ],
     });
 
-    if (install) {
-      const spinner = createSpinner('Installing dependencies...');
-      spinner.start();
+    if (action === 'cancel') {
+      console.log(chalk.yellow('Setup cancelled'));
+      process.exit(0);
+    }
+
+    if (action === 'skip') {
+      console.log(
+        boxen(
+          chalk.yellow(
+            [
+              '⚠️ Warning: Proceeding without optional dependencies',
+              '',
+              'Some features may be limited or unavailable:',
+              ...missing.map((dep) => `• ${dep.name}: Required for optimal experience`),
+              '',
+              'You can install these later using:',
+              ...missing.map((dep) => chalk.dim(dep.installCmd)),
+            ].join('\n'),
+          ),
+          {
+            padding: 1,
+            margin: 1,
+            borderStyle: 'round',
+            borderColor: 'yellow',
+            title: '⚠️ Limited Functionality',
+            titleAlignment: 'center',
+          },
+        ),
+      );
+      return true;
+    }
+
+    if (action === 'install') {
+      const s = spinner();
 
       for (const dep of missing) {
         try {
-          execSync(dep.installCmd, { stdio: 'pipe' });
-          spinner.succeed(`Installed ${dep.name}`);
+          s.start(`Installing ${dep.name}...`);
+
+          try {
+            execSync(dep.checkCmd, { stdio: 'pipe' });
+            s.stop(chalk.green(`✓ ${dep.name} is already installed`));
+            continue;
+          } catch {
+            execSync(dep.installCmd, { stdio: 'pipe' });
+          }
+
+          try {
+            execSync(dep.checkCmd, { stdio: 'pipe' });
+            s.stop(chalk.green(`✓ ${dep.name} installed successfully`));
+          } catch (error) {
+            throw new Error('Installation verification failed');
+          }
         } catch (error) {
-          spinner.fail(`Failed to install ${dep.name}`);
+          s.stop(chalk.red(`Failed to install ${dep.name}`));
+
+          const skip = await select({
+            message: `What would you like to do about ${dep.name}?`,
+            options: [
+              { value: 'retry', label: 'Retry Installation', hint: 'Try installing again' },
+              { value: 'skip', label: 'Skip This Dependency', hint: 'Continue without it' },
+              { value: 'cancel', label: 'Cancel Setup', hint: 'Exit the process' },
+            ],
+          });
+
+          if (skip === 'cancel') {
+            process.exit(0);
+          }
+
+          if (skip === 'retry') {
+            continue;
+          }
+
           console.log(
-            chalk.red(`Please install ${dep.name} manually:`, `\n${chalk.cyan(dep.installUrl)}`),
+            boxen(
+              chalk.yellow(
+                [
+                  `⚠️ ${dep.name} installation skipped`,
+                  '',
+                  'You can install it manually later using:',
+                  chalk.dim(dep.installCmd),
+                  '',
+                  'Some features may be limited without this dependency.',
+                ].join('\n'),
+              ),
+              {
+                padding: 1,
+                margin: 1,
+                borderStyle: 'round',
+                borderColor: 'yellow',
+              },
+            ),
           );
-          process.exit(1);
         }
       }
-    } else {
-      console.log(
-        chalk.yellow('\nPlease install the required dependencies manually and try again.'),
-      );
-      process.exit(1);
     }
   }
 
@@ -159,7 +240,30 @@ export async function checkRequirements() {
     {
       name: 'pnpm',
       command: 'pnpm --version',
-      errorMessage: 'pnpm is not installed. Please install pnpm first: npm install -g pnpm',
+      errorMessage: 'pnpm is not installed. Run: npm install -g pnpm',
+      optional: true,
+      verifyCommand: async () => {
+        try {
+          execSync('pnpm --version', { stdio: 'pipe' });
+          return true;
+        } catch {
+          return false;
+        }
+      },
+    },
+    {
+      name: 'bun',
+      command: 'bun --version',
+      errorMessage: 'bun is not installed. Run: npm install -g bun',
+      optional: true,
+      verifyCommand: async () => {
+        try {
+          execSync('bun --version', { stdio: 'pipe' });
+          return true;
+        } catch {
+          return false;
+        }
+      },
     },
   ];
 
@@ -167,13 +271,19 @@ export async function checkRequirements() {
 
   for (const req of requirements) {
     try {
-      await execWithRetry(req.command, { silent: true });
+      if (req.verifyCommand) {
+        const isInstalled = await req.verifyCommand();
+        if (!isInstalled) throw new Error(req.errorMessage);
+      } else {
+        await execWithRetry(req.command, { silent: true });
+      }
       results.push({ name: req.name, installed: true });
     } catch (error) {
       results.push({
         name: req.name,
         installed: false,
         error: req.errorMessage,
+        optional: req.optional,
       });
     }
   }
