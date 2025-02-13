@@ -1,6 +1,6 @@
 {
   "name": "zephyr-forge",
-  "version": "1.0.25",
+  "version": "1.0.26",
   "description": "Official installation server and script forge for the Zephyr development environment.",
   "author": "parazeeknova",
   "license": "MIT",
@@ -9,7 +9,9 @@
     "zephyr-forge": "./dist/module/cli/index.js"
   },
   "main": "./dist/module/index.js",
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "dev": "concurrently \"bun run dev:server\" \"bun run dev:web\"",
     "dev:server": "bun run src/server.js",
