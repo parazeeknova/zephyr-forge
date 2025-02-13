@@ -15,7 +15,20 @@ import { createServiceStatusTable, showCompletionMessage } from '../../lib/ui.js
 import { findProjectRoot } from '../../lib/utils.js';
 import fs from 'fs-extra';
 
-const REQUIRED_FILES = ['docker-compose.dev.yml', '.env', 'package.json'];
+const REQUIRED_FILES = ['docker-compose.dev.yml', 'package.json'];
+
+const REQUIRED_ENV_FILES = {
+  'apps/web/.env': [
+    'POSTGRES_USER',
+    'POSTGRES_PASSWORD',
+    'POSTGRES_DB',
+    'DATABASE_URL',
+    'REDIS_PASSWORD',
+    'MINIO_ROOT_USER',
+    'MINIO_ROOT_PASSWORD',
+  ],
+  'packages/db/.env': ['DATABASE_URL', 'POSTGRES_USER', 'POSTGRES_PASSWORD', 'POSTGRES_DB'],
+};
 
 export async function devCommand(options) {
   let cleanupDone = false;
@@ -67,14 +80,101 @@ export async function devCommand(options) {
     }
     s.stop('Project structure valid');
 
-    s.start('Validating environment');
+    s.start('Checking environment files');
+    const missingEnvFiles = [];
+    const invalidEnvFiles = [];
+
+    for (const [envPath, requiredVars] of Object.entries(REQUIRED_ENV_FILES)) {
+      const fullPath = path.join(projectRoot, envPath);
+
+      if (!fs.existsSync(fullPath)) {
+        missingEnvFiles.push(envPath);
+        continue;
+      }
+
+      try {
+        const envContent = await fs.readFile(fullPath, 'utf8');
+        const envVars = Object.fromEntries(
+          envContent
+            .split('\n')
+            .filter((line) => line.trim() && !line.trim().startsWith('#'))
+            .map((line) => line.split('=').map((part) => part.trim())),
+        );
+
+        const missingVars = requiredVars.filter((varName) => !envVars[varName]);
+        if (missingVars.length > 0) {
+          invalidEnvFiles.push({
+            file: envPath,
+            missing: missingVars,
+          });
+        }
+      } catch (error) {
+        throw new Error(`Error reading ${envPath}: ${error.message}`);
+      }
+    }
+
+    if (missingEnvFiles.length > 0 || invalidEnvFiles.length > 0) {
+      let errorMessage = '';
+
+      if (missingEnvFiles.length > 0) {
+        errorMessage += `Missing environment files:\n${missingEnvFiles.map((f) => `  - ${f}`).join('\n')}\n\n`;
+      }
+
+      if (invalidEnvFiles.length > 0) {
+        errorMessage += `Invalid environment files:\n${invalidEnvFiles
+          .map(({ file, missing }) => `  - ${file} is missing: ${missing.join(', ')}`)
+          .join('\n')}`;
+      }
+
+      errorMessage += '\n\nTip: Run `zephyr-forge setup` to create/fix environment files';
+      throw new Error(errorMessage);
+    }
+
+    s.start('Validating environment files');
+    const envErrors = [];
+
+    for (const [envPath, requiredVars] of Object.entries(REQUIRED_ENV_FILES)) {
+      const fullPath = path.join(projectRoot, envPath);
+
+      if (!fs.existsSync(fullPath)) {
+        envErrors.push(`Missing environment file: ${envPath}`);
+        continue;
+      }
+
+      try {
+        const envContent = await fs.readFile(fullPath, 'utf8');
+        const envVars = Object.fromEntries(
+          envContent
+            .split('\n')
+            .filter((line) => line.trim() && !line.trim().startsWith('#'))
+            .map((line) => line.split('=').map((part) => part.trim())),
+        );
+
+        const missingVars = requiredVars.filter((varName) => !envVars[varName]);
+        if (missingVars.length > 0) {
+          envErrors.push(
+            `Missing required variables in ${envPath}:\n  ${missingVars.join('\n  ')}`,
+          );
+        }
+      } catch (error) {
+        envErrors.push(`Error reading ${envPath}: ${error.message}`);
+      }
+    }
+
+    if (envErrors.length > 0) {
+      throw new Error(`Environment validation failed:\n${envErrors.join('\n')}`);
+    }
+    s.stop('Environment files validated');
+
+    s.start('Validating environment configuration');
     const envValidation = await validateEnvFiles(projectRoot);
     if (!envValidation.valid) {
-      throw new Error(
-        `Environment validation failed:\n${envValidation.errors.map((e) => `- ${e.file}: ${e.message}`).join('\n')}`,
-      );
+      const errors = envValidation.errors
+        .map((e) => `${e.file}: ${e.errors.map((err) => err.message).join(', ')}`)
+        .join('\n');
+      throw new Error(`Environment validation failed:\n${errors}`);
     }
-    s.stop('Environment validated');
+    s.stop('Environment configuration valid');
 
     s.start('Checking Docker services');
     const status = await checkContainerStatus();
@@ -143,6 +243,10 @@ export async function devCommand(options) {
     if (error.details) {
       console.log(chalk.yellow('\nError details:'));
       console.log(error.details);
+    }
+
+    if (error.message.includes('Missing environment file')) {
+      console.log(chalk.yellow('\nTip: Run `zephyr-forge setup` to create environment files'));
     }
 
     const retry = await confirm({

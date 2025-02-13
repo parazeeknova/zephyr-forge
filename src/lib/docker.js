@@ -1,5 +1,37 @@
 import { execSync } from 'node:child_process';
 import retry from 'async-retry';
+import chalk from 'chalk';
+import { isCancel, outro, select } from '@clack/prompts';
+
+export async function selectDockerOperation() {
+  const choice = await select({
+    message: 'Choose Docker operation mode:',
+    options: [
+      {
+        value: 'fresh',
+        label: 'Fresh Start',
+        hint: 'Remove everything and start from scratch',
+      },
+      {
+        value: 'existing',
+        label: 'Use Existing',
+        hint: 'Keep existing containers and volumes',
+      },
+      {
+        value: 'reinit',
+        label: 'Reinitialize',
+        hint: 'Keep volumes but reinit containers',
+      },
+    ],
+  });
+
+  if (isCancel(choice)) {
+    outro(chalk.yellow('Operation cancelled'));
+    process.exit(0);
+  }
+
+  return choice;
+}
 
 export async function checkDocker() {
   return retry(
