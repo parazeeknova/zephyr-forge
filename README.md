@@ -21,21 +21,24 @@
 
 Zephyr Forge is a powerful utility designed to streamline the setup process for **_[Zephyr development](https://github.com/parazeeknova/zephyr)_** environments. It automates the entire configuration process, handling everything from dependency checks to Docker container management, allowing contributors to focus on development rather than environment setup.
 
+> [!IMPORTANT]
+> [Bun](https://bun.sh) is required to be installed on your system, due to internal dependencies. Running `npx zephyr-forge@latest setup` can cause issues if Bun is not installed. So please make sure to install bun before running the setup command.
+
 ## Getting Started 🌱
 
 ###### *<div align="center"><sub>Using NPM</sub></div>*
 
 ```bash
 # Create a new Zephyr project
-npx zephyr-forge@latest init
+bunx zephyr-forge@latest init
 # or use github packages
-npx @parazeeknova/zephyr-forge@latest init
+bunx @parazeeknova/zephyr-forge@latest init
 
 # Initialize and start your development environment (First time recommended)
-npx zephyr-forge@latest setup
+bunx zephyr-forge@latest setup
 
 # Start development for an existing project
-npx zephyr-forge@latest dev
+bunx zephyr-forge@latest dev
 ```
 
 > [!NOTE]
