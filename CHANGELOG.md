@@ -1,3 +1,20 @@
+# v1.0.26 (Thu Feb 13 2025)
+
+:tada: This release contains work from a new contributor! :tada:
+
+Thank you, Wooimbouttamakeanameformyselfere ([@pxrsival](https://github.com/pxrsival)), for all your work!
+
+#### 🐛 Bug Fix
+
+- feat[SCRIPT]: Progress goes brrrr [#19](https://github.com/parazeeknova/zephyr-forge/pull/19) ([@parazeeknova](https://github.com/parazeeknova) [@pxrsival](https://github.com/pxrsival))
+
+#### Authors: 2
+
+- Harsh ([@parazeeknova](https://github.com/parazeeknova))
+- Wooimbouttamakeanameformyselfere ([@pxrsival](https://github.com/pxrsival))
+
+---
+
 # v1.0.25 (Thu Feb 13 2025)
 
 :tada: This release contains work from a new contributor! :tada:
