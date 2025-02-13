@@ -2,10 +2,12 @@ import { z } from 'zod';
 import { createEnv } from '@t3-oss/env-core';
 import fs from 'fs-extra';
 import path from 'node:path';
-import { select, text, isCancel, outro } from '@clack/prompts';
+import { select, text, isCancel, outro, intro, spinner } from '@clack/prompts';
 import ora from 'ora';
 import chalk from 'chalk';
 import boxen from 'boxen';
+import { findProjectRoot } from './utils.js';
+import { displayBanner } from './ui.js';
 
 const serverSchema = {
   // Database
@@ -335,4 +337,182 @@ export async function validateEnvFiles(projectRoot) {
   }
 
   return results;
+}
+
+export async function checkEnvCommand(options) {
+  const { mode = 'check', fix = false, validate = false } = options;
+
+  await displayBanner('env-check');
+  intro(chalk.blue(`🔍 ${getCommandTitle(mode)}`));
+
+  const s = spinner();
+  try {
+    let projectRoot = options.projectRoot;
+    if (!projectRoot) {
+      try {
+        projectRoot = await findProjectRoot(process.cwd());
+      } catch (error) {
+        throw new Error('Not in a Zephyr project directory.');
+      }
+    }
+
+    s.start('Analyzing environment files');
+    const validation = await validateEnvFiles(projectRoot);
+
+    if (mode === 'validate') {
+      s.stop('Environment analysis complete');
+      showDetailedValidationReport(validation);
+    } else if (mode === 'fix') {
+      s.start('Attempting to fix environment issues');
+      const fixResults = await fixEnvIssues(projectRoot, validation);
+      s.stop(chalk.green('Environment fix attempt complete'));
+      showFixReport(fixResults);
+    } else {
+      if (!validation.valid) {
+        s.stop(chalk.red('Environment validation failed'));
+        console.log('\nValidation errors:');
+        validation.errors.forEach(({ file, errors }) => {
+          console.log(chalk.yellow(`\n${file}:`));
+          errors.forEach((err) => console.log(chalk.red(`  • ${err.message}`)));
+        });
+        process.exit(1);
+      }
+      s.stop(chalk.green('✓ Environment configuration is valid'));
+    }
+
+    outro(getCommandOutro(mode, validation.valid));
+  } catch (error) {
+    s.stop(chalk.red(`Error: ${error.message}`));
+    process.exit(1);
+  }
+}
+
+function getCommandTitle(mode) {
+  const titles = {
+    check: 'Checking Environment Configuration',
+    validate: 'Performing Detailed Environment Validation',
+    fix: 'Fixing Environment Configuration Issues',
+  };
+  return titles[mode] || titles.check;
+}
+
+function getCommandOutro(mode, isValid) {
+  if (mode === 'validate') {
+    return chalk.green('Validation complete. See report above for details.');
+  }
+  if (mode === 'fix') {
+    return chalk.green('Fix attempt complete. Please review changes.');
+  }
+  return isValid
+    ? chalk.green('All environment variables are properly configured')
+    : chalk.red('Environment configuration needs attention');
+}
+
+function showDetailedValidationReport(validation) {
+  const report = [
+    chalk.bold('📋 Environment Validation Report'),
+    '',
+    `Status: ${validation.valid ? chalk.green('✓ Valid') : chalk.red('✗ Invalid')}`,
+    '',
+    'File Check Results:',
+  ];
+
+  validation.errors.forEach(({ file, errors }) => {
+    report.push(
+      chalk.yellow(`\n${file}:`),
+      ...errors.map((err) => `  ${chalk.red('•')} ${err.message}`),
+    );
+  });
+
+  console.log(
+    boxen(report.join('\n'), {
+      padding: 1,
+      margin: 1,
+      borderStyle: 'round',
+      borderColor: validation.valid ? 'green' : 'red',
+      title: '🔍 Validation Results',
+      titleAlignment: 'center',
+    }),
+  );
+}
+
+async function fixEnvIssues(projectRoot, validation) {
+  const results = {
+    fixed: [],
+    unfixed: [],
+    backups: [],
+  };
+
+  if (validation.valid) {
+    return { message: 'No issues to fix', changes: [] };
+  }
+
+  const envPaths = {
+    web: path.join(projectRoot, 'apps/web/.env'),
+    db: path.join(projectRoot, 'packages/db/.env'),
+  };
+
+  for (const [name, filePath] of Object.entries(envPaths)) {
+    if (await fs.pathExists(filePath)) {
+      const backupPath = `${filePath}.backup-${Date.now()}`;
+      await fs.copy(filePath, backupPath);
+      results.backups.push(backupPath);
+    }
+  }
+
+  for (const { file, errors } of validation.errors) {
+    const filePath = envPaths[file];
+    if (!(await fs.pathExists(filePath))) {
+      results.unfixed.push(`Missing file: ${file}`);
+      continue;
+    }
+
+    let content = await fs.readFile(filePath, 'utf8');
+    let modified = false;
+
+    for (const error of errors) {
+      if (error.message.includes('missing')) {
+        const varName = error.message.split(':')[0].trim();
+        if (DEFAULT_ENV_CONFIG[varName]) {
+          content += `\n${varName}=${DEFAULT_ENV_CONFIG[varName]}`;
+          results.fixed.push(`Added missing ${varName} in ${file}`);
+          modified = true;
+        } else {
+          results.unfixed.push(`Could not fix missing ${varName} in ${file}`);
+        }
+      }
+    }
+
+    if (modified) {
+      await fs.writeFile(filePath, content);
+    }
+  }
+
+  return results;
+}
+
+function showFixReport(results) {
+  const report = [
+    chalk.bold('🔧 Environment Fix Report'),
+    '',
+    chalk.yellow('Backups created:'),
+    ...results.backups.map((path) => `  • ${path}`),
+    '',
+    chalk.green('Fixed issues:'),
+    ...results.fixed.map((fix) => `  ✓ ${fix}`),
+    '',
+    chalk.red('Unfixed issues:'),
+    ...results.unfixed.map((issue) => `  ✗ ${issue}`),
+  ];
+
+  console.log(
+    boxen(report.join('\n'), {
+      padding: 1,
+      margin: 1,
+      borderStyle: 'round',
+      borderColor: 'blue',
+      title: '🛠️ Fix Results',
+      titleAlignment: 'center',
+    }),
+  );
 }
