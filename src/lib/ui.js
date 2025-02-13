@@ -3,6 +3,9 @@ import gradient from 'gradient-string';
 import boxen from 'boxen';
 import figlet from 'figlet';
 import ora from 'ora';
+import { table } from 'table';
+import prettyBytes from 'pretty-bytes';
+import prettyMs from 'pretty-ms';
 
 const BOXEN_CONFIG = {
   padding: 1,
@@ -141,6 +144,14 @@ export function showCompletionMessage(options = {}) {
 }
 
 export function createServiceStatusTable(status) {
+  if (!status || !status.services) {
+    return boxen('No service status available', {
+      ...BOXEN_CONFIG,
+      title: '🔍 Service Status',
+      titleAlignment: 'center',
+    });
+  }
+
   const rows = [
     ['Service', 'Status', 'Container', 'Health'].map((h) => chalk.blue(h)).join(' │ '),
     '─'.repeat(70),
@@ -155,10 +166,12 @@ export function createServiceStatusTable(status) {
   };
 
   for (const [serviceName, info] of Object.entries(status.services)) {
+    if (!info) continue;
+
     const row = [
       chalk.white(serviceName.padEnd(15)),
-      info.status.padEnd(15),
-      info.container.padEnd(25),
+      (info.status || 'unknown').padEnd(15),
+      (info.container || 'unknown').padEnd(25),
       statusIcons[info.health] || chalk.gray('-'),
     ].join(' │ ');
     rows.push(row);
@@ -181,4 +194,99 @@ export function showInitializationProgress(step, total, message) {
     title: '⚙️ Setup',
     titleAlignment: 'center',
   });
+}
+
+export function clearLines(count) {
+  for (let i = 0; i < count; i++) {
+    process.stdout.write('\x1B[K\x1B[1A');
+  }
+}
+
+export function createContainerStatusTable(containers) {
+  const tableConfig = {
+    border: {
+      topBody: '─',
+      topJoin: '┬',
+      topLeft: '┌',
+      topRight: '┐',
+      bottomBody: '─',
+      bottomJoin: '┴',
+      bottomLeft: '└',
+      bottomRight: '┘',
+      bodyLeft: '│',
+      bodyRight: '│',
+      bodyJoin: '│',
+      joinBody: '─',
+      joinLeft: '├',
+      joinRight: '┤',
+      joinJoin: '┼',
+    },
+    columns: {
+      0: { alignment: 'left' },
+      1: { alignment: 'left' },
+      2: { alignment: 'right' },
+      3: { alignment: 'right' },
+      4: { alignment: 'right' },
+    },
+    drawHorizontalLine: (index, size) => index === 0 || index === 1 || index === size,
+  };
+
+  const data = [['Container', 'Status', 'Memory', 'CPU', 'Uptime'].map((h) => chalk.blue(h))];
+
+  for (const container of containers) {
+    const stats = getContainerStats(container.Id);
+    data.push([
+      container.Names[0].replace(/^\//, ''),
+      `${getStatusEmoji(container.State)} ${container.State}`,
+      prettyBytes(stats.memory_stats.usage),
+      `${stats.cpu_stats.cpu_usage.percent.toFixed(2)}%`,
+      prettyMs(Date.now() - new Date(container.Created).getTime()),
+    ]);
+  }
+
+  return boxen(table(data, tableConfig), {
+    ...BOXEN_CONFIG,
+    title: '🔍 Container Status',
+    titleAlignment: 'center',
+  });
+}
+
+function getStatusEmoji(status) {
+  const statusMap = {
+    running: '🟢',
+    created: '🟡',
+    restarting: '🔄',
+    removing: '🗑️',
+    paused: '⏸️',
+    exited: '🔴',
+    dead: '💀',
+  };
+  return statusMap[status.toLowerCase()] || '❓';
+}
+
+export async function getContainerStats(containerId) {
+  try {
+    const { execSync } = await import('node:child_process');
+    const stats = JSON.parse(
+      execSync(`docker stats ${containerId} --no-stream --format "{{json .}}"`, {
+        stdio: ['pipe', 'pipe', 'pipe'],
+      }).toString(),
+    );
+
+    return {
+      memory_stats: {
+        usage: Number.parseInt(stats.MemUsage.split('/')[0].trim()),
+      },
+      cpu_stats: {
+        cpu_usage: {
+          percent: Number.parseFloat(stats.CPUPerc.replace('%', '')),
+        },
+      },
+    };
+  } catch (error) {
+    return {
+      memory_stats: { usage: 0 },
+      cpu_stats: { cpu_usage: { percent: 0 } },
+    };
+  }
 }

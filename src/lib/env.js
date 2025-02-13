@@ -14,12 +14,15 @@ const serverSchema = {
   POSTGRES_DB: z.string().min(1),
   POSTGRES_PORT: z.string().default('5433'),
   POSTGRES_HOST: z.string().default('localhost'),
-  DATABASE_URL: z.string().url(),
+  DATABASE_URL: z.string(),
+  POSTGRES_PRISMA_URL: z.string(),
+  POSTGRES_URL_NON_POOLING: z.string(),
 
   // Redis
   REDIS_PASSWORD: z.string().min(1),
   REDIS_PORT: z.string().default('6379'),
   REDIS_HOST: z.string().default('localhost'),
+  REDIS_URL: z.string(),
 
   // MinIO
   MINIO_ROOT_USER: z.string().min(1),
@@ -27,10 +30,22 @@ const serverSchema = {
   MINIO_BUCKET_NAME: z.string().default('uploads'),
   MINIO_PORT: z.string().default('9000'),
   MINIO_CONSOLE_PORT: z.string().default('9001'),
+  MINIO_HOST: z.string(),
+  MINIO_ENDPOINT: z.string(),
+  NEXT_PUBLIC_MINIO_ENDPOINT: z.string(),
+  MINIO_ENABLE_OBJECT_LOCKING: z.string(),
 
   // Application
   JWT_SECRET: z.string().min(1),
+  JWT_EXPIRES_IN: z.string(),
+  NEXT_PUBLIC_PORT: z.string(),
+  NEXT_PUBLIC_URL: z.string(),
+  NEXT_PUBLIC_SITE_URL: z.string(),
   NODE_ENV: z.enum(['development', 'production']).default('development'),
+
+  // Misc
+  NEXT_TELEMETRY_DISABLED: z.string().optional(),
+  TURBO_TELEMERY_DISABLED: z.string().optional(),
 };
 
 const DEFAULT_DB_ENV = `
@@ -292,12 +307,29 @@ export async function validateEnvFiles(projectRoot) {
           .map((line) => line.split('=').map((part) => part.trim())),
       );
 
-      getEnvSchema(env).server.parse(env);
+      const validationErrors = [];
+      for (const [key, value] of Object.entries(env)) {
+        if (serverSchema[key]) {
+          try {
+            serverSchema[key].parse(value);
+          } catch (error) {
+            validationErrors.push(`${key}: ${error.message}`);
+          }
+        }
+      }
+
+      if (validationErrors.length > 0) {
+        results.valid = false;
+        results.errors.push({
+          file: name,
+          errors: validationErrors.map((err) => ({ message: err })),
+        });
+      }
     } catch (error) {
       results.valid = false;
       results.errors.push({
         file: name,
-        errors: error.errors || [{ message: error.message }],
+        errors: [{ message: error.message }],
       });
     }
   }

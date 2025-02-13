@@ -1,9 +1,17 @@
-import { execSync } from 'node:child_process';
+import { execSync, spawn } from 'node:child_process';
 import { setTimeout } from 'node:timers/promises';
 import chalk from 'chalk';
 import retry from 'async-retry';
-import ora from 'ora';
-import { showInitializationProgress } from './ui.js';
+import {
+  createSpinner,
+  showInitializationProgress,
+  createContainerStatusTable,
+  getContainerStats,
+} from './ui.js';
+import dockerNames from 'docker-names';
+import debug from 'debug';
+import { selectDockerOperation } from './docker.js';
+import boxen from 'boxen';
 
 const INIT_STEPS = {
   CLEANUP: 1,
@@ -42,14 +50,67 @@ const SERVICES = {
   },
 };
 
-const createSpinner = (text) => {
-  const spinner = ora({
-    text,
-    color: 'cyan',
-    spinner: 'dots',
+const log = debug('zephyr:docker');
+
+async function spawnDockerCommand(command, args, options = {}) {
+  const { silent = false, logPrefix = '' } = options;
+
+  return new Promise((resolve, reject) => {
+    const proc = spawn(command, args, {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: { ...process.env, COMPOSE_DOCKER_CLI_BUILD: '1', DOCKER_BUILDKIT: '1' },
+    });
+
+    // biome-ignore lint/style/useConst: This is a function that needs to be mutable
+    let output = [];
+    // biome-ignore lint/style/useConst: This is a function that needs to be mutable
+    let errorOutput = [];
+    let currentLine = '';
+
+    if (!silent) process.stdout.write('\x1B[s');
+
+    const processStream = (data, isError = false) => {
+      const lines = (currentLine + data.toString()).split('\n');
+      currentLine = lines.pop() || '';
+
+      lines.forEach((line) => {
+        if (line.trim()) {
+          const logLine = `${logPrefix}${line.trim()}`;
+          if (isError) {
+            errorOutput.push(logLine);
+            if (!silent) process.stdout.write(`\x1B[u\x1B[2B\n${chalk.red(logLine)}`);
+          } else {
+            output.push(logLine);
+            if (!silent) process.stdout.write(`\x1B[u\x1B[2B\n${chalk.dim(logLine)}`);
+          }
+        }
+      });
+    };
+
+    proc.stdout.on('data', (data) => processStream(data));
+    proc.stderr.on('data', (data) => processStream(data, true));
+
+    proc.on('close', (code) => {
+      if (code === 0) {
+        resolve({ output, errorOutput });
+      } else {
+        const error = new Error('Command failed');
+        error.code = code;
+        error.output = output;
+        error.errorOutput = errorOutput;
+        error.command = `${command} ${args.join(' ')}`;
+        reject(error);
+      }
+    });
+
+    proc.on('error', (error) => {
+      error.output = output;
+      error.errorOutput = errorOutput;
+      error.command = `${command} ${args.join(' ')}`;
+      reject(error);
+    });
   });
-  return spinner;
-};
+}
 
 export async function checkContainerStatus() {
   const spinner = createSpinner('Checking container status...');
@@ -60,10 +121,19 @@ export async function checkContainerStatus() {
     stopped: [],
     missing: [],
     initRequired: [],
+    services: {},
   };
 
   try {
-    const containers = execSync('docker ps -a --format "{{.Names}},{{.Status}}"', {
+    const containersJson = execSync('docker ps -a --format "{{json .}}"', { stdio: 'pipe' })
+      .toString()
+      .split('\n')
+      .filter(Boolean);
+
+    const containers = containersJson.map((json) => JSON.parse(json));
+
+    console.log(createContainerStatusTable(containers));
+    const containerStatuses = execSync('docker ps -a --format "{{.Names}},{{.Status}}"', {
       stdio: 'pipe',
     })
       .toString()
@@ -71,7 +141,30 @@ export async function checkContainerStatus() {
       .filter(Boolean);
 
     for (const [serviceName, service] of Object.entries(SERVICES)) {
-      const containerInfo = containers.find((c) => c.includes(service.container));
+      const containerInfo = containerStatuses.find((c) => c.includes(service.container));
+      const containerDetails = containers.find((c) => c.Names.includes(`/${service.container}`));
+      let stats = null;
+      if (containerDetails && containerDetails.State === 'running') {
+        try {
+          stats = await getContainerStats(containerDetails.ID);
+        } catch (error) {
+          console.log(
+            chalk.yellow(`Warning: Could not get stats for ${service.name}: ${error.message}`),
+          );
+        }
+      }
+
+      results.services[serviceName] = {
+        status: !containerInfo ? 'missing' : containerInfo.includes('Up') ? 'running' : 'stopped',
+        container: service.container,
+        health: !containerInfo
+          ? 'missing'
+          : containerInfo.includes('healthy')
+            ? 'healthy'
+            : 'unhealthy',
+        stats: stats,
+        details: containerDetails || null,
+      };
 
       if (!containerInfo) {
         results.missing.push(serviceName);
@@ -87,7 +180,7 @@ export async function checkContainerStatus() {
       }
 
       if (service.initContainer) {
-        const initInfo = containers.find((c) => c.includes(service.initContainer));
+        const initInfo = containerStatuses.find((c) => c.includes(service.initContainer));
         if (!initInfo || !initInfo.includes('Exited (0)')) {
           results.initRequired.push(serviceName);
           results.needsInit = true;
@@ -95,11 +188,72 @@ export async function checkContainerStatus() {
       }
     }
 
+    const summary = [
+      '',
+      chalk.blue('Container Summary:'),
+      chalk.green(`Running: ${results.running.length}`),
+      chalk.red(`Stopped: ${results.stopped.length}`),
+      chalk.yellow(`Missing: ${results.missing.length}`),
+      results.needsInit
+        ? chalk.yellow('⚠️  Initialization required')
+        : chalk.green('✓ All services initialized'),
+      '',
+    ].join('\n');
+
+    console.log(
+      boxen(summary, {
+        padding: 1,
+        margin: 1,
+        borderStyle: 'round',
+        borderColor: results.needsInit ? 'yellow' : 'green',
+      }),
+    );
+
+    if (results.needsInit || results.stopped.length > 0) {
+      const issues = [];
+
+      if (results.missing.length > 0) {
+        issues.push(chalk.yellow(`Missing containers: ${results.missing.join(', ')}`));
+      }
+
+      if (results.stopped.length > 0) {
+        issues.push(chalk.red(`Stopped containers: ${results.stopped.join(', ')}`));
+      }
+
+      if (results.initRequired.length > 0) {
+        issues.push(chalk.yellow(`Needs initialization: ${results.initRequired.join(', ')}`));
+      }
+
+      console.log(
+        boxen(issues.join('\n'), {
+          title: '⚠️  Issues Found',
+          padding: 1,
+          margin: 1,
+          borderStyle: 'round',
+          borderColor: 'yellow',
+        }),
+      );
+    }
+
     spinner.succeed('Container status checked');
     return results;
   } catch (error) {
     spinner.fail(`Failed to check container status: ${error.message}`);
-    throw error;
+
+    console.error(chalk.red('\nError Details:'));
+    if (error.stack) {
+      console.error(chalk.dim(error.stack));
+    }
+
+    try {
+      execSync('docker info', { stdio: 'pipe' });
+    } catch (dockerError) {
+      console.error(
+        chalk.yellow('\nDocker daemon might not be running. Please check if Docker is started.'),
+      );
+    }
+
+    throw new Error(`Container status check failed: ${error.message}`);
   }
 }
 
@@ -151,15 +305,34 @@ export async function cleanupServices() {
   spinner.start();
 
   try {
-    execSync('docker-compose -f docker-compose.dev.yml down -v', { stdio: 'pipe' });
-    execSync(
-      'docker volume rm zephyr_postgres_data_dev zephyr_redis_data_dev zephyr_minio_data_dev',
-      {
+    execSync('docker-compose -f docker-compose.dev.yml down', {
+      stdio: 'pipe',
+    });
+
+    const volumes = execSync('docker volume ls --format "{{.Name}}"', {
+      stdio: 'pipe',
+    })
+      .toString()
+      .split('\n');
+
+    const volumesToRemove = [
+      'zephyr_postgres_data_dev',
+      'zephyr_redis_data_dev',
+      'zephyr_minio_data_dev',
+    ].filter((volume) => volumes.includes(volume));
+
+    if (volumesToRemove.length > 0) {
+      execSync(`docker volume rm ${volumesToRemove.join(' ')}`, {
         stdio: 'pipe',
-      },
-    );
+      });
+    }
+
     spinner.succeed('Services cleaned up successfully');
   } catch (error) {
+    if (error.message.includes('no such volume')) {
+      spinner.succeed('No existing volumes to clean up');
+      return;
+    }
     spinner.fail(chalk.red('Failed to cleanup services'));
     throw error;
   }
@@ -167,101 +340,91 @@ export async function cleanupServices() {
 
 export async function initializeServices(options = {}) {
   const { showProgress = true } = options;
-  const spinner = createSpinner('Initializing services...');
-  spinner.start();
   const totalSteps = Object.keys(INIT_STEPS).length;
 
-  try {
-    // Step 1: Cleanup
-    if (showProgress) {
-      console.log(showInitializationProgress(1, totalSteps, 'Cleaning up existing services...'));
-    }
-    await cleanupServices();
+  console.clear();
+  console.log('\n'.repeat(10));
 
-    // Step 2: Create Docker network
+  try {
+    const mode = await selectDockerOperation();
+    const logPrefix = `[${dockerNames.getRandomName(true)}] `;
+    log('Starting initialization in %s mode', mode);
+
+    // Step 1: Handle existing services based on mode
     if (showProgress) {
-      console.log(showInitializationProgress(2, totalSteps, 'Creating Docker network...'));
+      process.stdout.write('\x1B[H');
+      console.log(showInitializationProgress(1, totalSteps, 'Preparing environment...'));
+    }
+
+    if (mode === 'fresh') {
+      await cleanupServices({ removeVolumes: true });
+    } else if (mode === 'reinit') {
+      await cleanupServices({ removeVolumes: false });
+    }
+
+    // Step 2: Network setup
+    if (showProgress) {
+      process.stdout.write('\x1B[H');
+      console.log(showInitializationProgress(2, totalSteps, 'Setting up network...'));
     }
     await createNetwork();
+    const services = ['postgres', 'redis', 'minio'];
+    const logProcesses = [];
 
-    // Step 3: Initialize PostgreSQL
-    if (showProgress) {
-      console.log(showInitializationProgress(3, totalSteps, 'Initializing PostgreSQL...'));
+    for (const [index, service] of services.entries()) {
+      if (showProgress) {
+        process.stdout.write('\x1B[H');
+        console.log(
+          showInitializationProgress(index + 3, totalSteps, `Initializing ${service}...`),
+        );
+      }
+
+      try {
+        await spawnDockerCommand(
+          'docker-compose',
+          ['-f', 'docker-compose.dev.yml', 'up', '-d', `${service}-dev`],
+          { logPrefix: `[${service}] ` },
+        );
+
+        logProcesses.push(
+          streamContainerLogs(`zephyr-${service}-dev`, { logPrefix: `[${service}] ` }),
+        );
+        await waitForContainer(`zephyr-${service}-dev`, 'healthy');
+      } catch (error) {
+        throw new ServiceError(service, error);
+      }
     }
-    await initializePostgres();
 
-    // Step 4: Initialize Redis
+    // Final health check
     if (showProgress) {
-      console.log(showInitializationProgress(4, totalSteps, 'Initializing Redis...'));
+      process.stdout.write('\x1B[H');
+      console.log(showInitializationProgress(totalSteps, totalSteps, 'Verifying services...'));
     }
-    await initializeRedis();
 
-    // Step 5: Initialize MinIO
-    if (showProgress) {
-      console.log(showInitializationProgress(5, totalSteps, 'Initializing MinIO...'));
+    const health = await checkServiceHealth();
+    if (!health.healthy) {
+      throw new Error(`Service health check failed:\n${health.issues.join('\n')}`);
     }
-    await initializeMinio();
 
-    // Step 6: Run Prisma migrations
-    if (showProgress) {
-      console.log(showInitializationProgress(6, totalSteps, 'Running database migrations...'));
+    // Cleanup
+    logProcesses.forEach((proc) => proc.kill());
+
+    return { status: 'success', mode, health };
+  } catch (error) {
+    if (error instanceof ServiceError) {
+      console.error(chalk.red(`\nService initialization failed for ${error.service}:`));
+      console.error(chalk.yellow(error.details));
+    } else {
+      console.error(chalk.red('\nInitialization failed:'));
+      console.error(chalk.yellow(error.message));
     }
-    await runPrismaMigrations();
 
-    // Step 7: Final health check
-    if (showProgress) {
-      console.log(showInitializationProgress(7, totalSteps, 'Performing final health check...'));
+    if (error.output?.length) {
+      console.log('\nCommand output:');
+      console.log(error.output.join('\n'));
     }
-    await verifyServices();
 
-    spinner.succeed('Services initialized successfully');
-    return true;
-  } catch (error) {
-    spinner.fail(`Initialization failed: ${error.message}`);
-    throw new Error(`Initialization failed: ${error.message}`);
-  }
-}
-
-async function initializePostgres() {
-  try {
-    execSync(
-      'docker-compose -f docker-compose.dev.yml --profile init up -d postgres-dev postgres-init',
-      { stdio: 'pipe' },
-    );
-    await waitForContainer('zephyr-postgres-init', 'done');
-  } catch (error) {
-    throw new Error(`PostgreSQL initialization failed: ${error.message}`);
-  }
-}
-
-async function initializeRedis() {
-  try {
-    execSync('docker-compose -f docker-compose.dev.yml up -d redis-dev', { stdio: 'pipe' });
-    await waitForContainer('zephyr-redis-dev', 'healthy');
-  } catch (error) {
-    throw new Error(`Redis initialization failed: ${error.message}`);
-  }
-}
-
-async function initializeMinio() {
-  try {
-    execSync('docker-compose -f docker-compose.dev.yml --profile init up -d minio-dev minio-init', {
-      stdio: 'pipe',
-    });
-    await waitForContainer('zephyr-minio-init', 'done');
-  } catch (error) {
-    throw new Error(`MinIO initialization failed: ${error.message}`);
-  }
-}
-
-async function runPrismaMigrations() {
-  try {
-    execSync('docker-compose -f docker-compose.dev.yml --profile init up -d prisma-migrate', {
-      stdio: 'pipe',
-    });
-    await waitForContainer('zephyr-prisma-migrate', 'done');
-  } catch (error) {
-    throw new Error(`Prisma migrations failed: ${error.message}`);
+    throw error;
   }
 }
 
@@ -275,6 +438,15 @@ export async function startServices() {
   } catch (error) {
     spinner.fail(chalk.red('Failed to start services'));
     throw error;
+  }
+}
+
+class ServiceError extends Error {
+  constructor(service, originalError) {
+    super(`${service} initialization failed`);
+    this.service = service;
+    this.details = originalError.message;
+    this.originalError = originalError;
   }
 }
 
@@ -343,34 +515,86 @@ export async function waitForInitServices(maxAttempts = 60) {
 async function waitForContainer(container, status) {
   return retry(
     async () => {
-      const output = execSync(`docker inspect ${container}`, { stdio: 'pipe' }).toString();
-      const info = JSON.parse(output)[0];
+      const proc = spawn('docker', ['inspect', container], { stdio: ['ignore', 'pipe', 'pipe'] });
 
-      if (status === 'done') {
-        if (!info.State.Running && info.State.ExitCode === 0) {
-          return true;
-        }
-      } else if (status === 'healthy') {
-        if (info.State.Health && info.State.Health.Status === 'healthy') {
-          return true;
-        }
-      }
+      return new Promise((resolve, reject) => {
+        let output = '';
 
-      throw new Error(`Container ${container} not ${status}`);
+        proc.stdout.on('data', (data) => {
+          output += data.toString();
+        });
+
+        proc.stderr.on('data', (data) => {
+          process.stdout.write(`\x1B[u\x1B[2B\n${chalk.yellow(data.toString())}`);
+        });
+
+        proc.on('close', (code) => {
+          if (code === 0) {
+            const info = JSON.parse(output)[0];
+
+            if (status === 'done') {
+              if (!info.State.Running && info.State.ExitCode === 0) {
+                resolve(true);
+              } else if (info.State.ExitCode !== 0) {
+                reject(
+                  new Error(`Container ${container} failed with exit code ${info.State.ExitCode}`),
+                );
+              } else {
+                reject(new Error(`Waiting for ${container} to complete...`));
+              }
+            } else if (status === 'healthy') {
+              if (info.State.Health && info.State.Health.Status === 'healthy') {
+                resolve(true);
+              } else {
+                reject(new Error(`Waiting for ${container} to become healthy...`));
+              }
+            }
+          } else {
+            reject(new Error(`Failed to inspect container ${container}`));
+          }
+        });
+      });
     },
     {
       retries: 30,
       minTimeout: 2000,
       maxTimeout: 5000,
+      onRetry: (error) => {
+        process.stdout.write(`\x1B[u\x1B[2B\n${chalk.dim(`${error.message}`)}`);
+      },
     },
   );
 }
 
+async function streamContainerLogs(container) {
+  const proc = spawn('docker', ['logs', '-f', container], { stdio: ['ignore', 'pipe', 'pipe'] });
+
+  proc.stdout.on('data', (data) => {
+    process.stdout.write(`\x1B[u\x1B[2B\n${chalk.dim(data.toString())}`);
+  });
+
+  proc.stderr.on('data', (data) => {
+    process.stdout.write(`\x1B[u\x1B[2B\n${chalk.yellow(data.toString())}`);
+  });
+
+  return proc;
+}
+
 export async function verifyServices() {
   const services = await checkServices();
+
+  for (const [serviceName, info] of Object.entries(services.services)) {
+    if (info.status === 'ready') {
+      process.stdout.write(`\x1B[u\x1B[2B\n${chalk.green(`✓ ${serviceName} is ready`)}`);
+    } else {
+      process.stdout.write(`\x1B[u\x1B[2B\n${chalk.red(`✗ ${serviceName} failed: ${info.error}`)}`);
+    }
+  }
+
   if (!services.ready) {
     throw new Error('Service verification failed');
   }
+
   return services;
 }
 
@@ -435,11 +659,31 @@ export async function checkServiceHealth() {
 }
 
 async function createNetwork() {
+  const spinner = createSpinner('Setting up Docker network...');
+  spinner.start();
+
   try {
-    execSync('docker network create zephyr_dev_network || true', {
+    const networks = execSync('docker network ls --format "{{.Name}}"', {
+      stdio: 'pipe',
+    })
+      .toString()
+      .split('\n');
+
+    if (networks.includes('zephyr_dev_network')) {
+      spinner.succeed('Docker network already exists');
+      return;
+    }
+
+    execSync('docker network create zephyr_dev_network', {
       stdio: 'pipe',
     });
+    spinner.succeed('Docker network created successfully');
   } catch (error) {
+    if (error.message.includes('already exists')) {
+      spinner.succeed('Docker network already exists');
+      return;
+    }
+    spinner.fail(`Failed to setup Docker network: ${error.message}`);
     throw new Error(`Failed to create network: ${error.message}`);
   }
 }
