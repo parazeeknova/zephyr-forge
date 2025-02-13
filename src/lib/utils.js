@@ -10,42 +10,90 @@ export const sleep = (ms) => setTimeout(ms);
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-export async function copyProjectTemplate(targetDir) {
-  const templateDir = path.join(__dirname, '../../templates/default');
+export async function checkDependencies() {
+  const dependencies = [
+    {
+      name: 'pnpm',
+      checkCmd: 'pnpm --version',
+      installCmd: 'npm install -g pnpm',
+      installUrl: 'https://pnpm.io/installation',
+    },
+    {
+      name: 'bun',
+      checkCmd: 'bun --version',
+      installCmd: 'npm install -g bun',
+      installUrl: 'https://bun.sh/docs/installation',
+    },
+  ];
 
-  try {
-    if (!(await fs.pathExists(templateDir))) {
-      throw new Error('Project template not found');
+  const missing = [];
+
+  for (const dep of dependencies) {
+    try {
+      execSync(dep.checkCmd, { stdio: 'pipe' });
+    } catch (error) {
+      missing.push(dep);
     }
-    await fs.copy(templateDir, targetDir, {
-      filter: (src) => {
-        const basename = path.basename(src);
-        return !basename.startsWith('.') && basename !== 'node_modules' && basename !== 'dist';
-      },
+  }
+
+  if (missing.length > 0) {
+    console.log(
+      boxen(
+        chalk.yellow(
+          [
+            '⚠️  Missing Required Dependencies',
+            '',
+            ...missing.map(
+              (dep) => `${chalk.bold(dep.name)} is not installed. You can install it by:`,
+              '',
+              `• Automatic: ${chalk.cyan(dep.installCmd)}`,
+              `• Manual: Visit ${chalk.cyan(dep.installUrl)}`,
+              '',
+            ),
+            'Would you like to install the missing dependencies automatically?',
+          ].join('\n'),
+        ),
+        {
+          padding: 1,
+          margin: 1,
+          borderStyle: 'round',
+          borderColor: 'yellow',
+          title: '🔧 Dependencies Check',
+          titleAlignment: 'center',
+        },
+      ),
+    );
+
+    const install = await confirm({
+      message: 'Install missing dependencies?',
+      initialValue: true,
     });
 
-    const dirs = [
-      'packages',
-      'packages/db',
-      'packages/api',
-      'packages/web',
-      'docker',
-      'docker/postgres',
-      'docker/redis',
-      'docker/minio',
-    ];
+    if (install) {
+      const spinner = createSpinner('Installing dependencies...');
+      spinner.start();
 
-    for (const dir of dirs) {
-      await fs.ensureDir(path.join(targetDir, dir));
+      for (const dep of missing) {
+        try {
+          execSync(dep.installCmd, { stdio: 'pipe' });
+          spinner.succeed(`Installed ${dep.name}`);
+        } catch (error) {
+          spinner.fail(`Failed to install ${dep.name}`);
+          console.log(
+            chalk.red(`Please install ${dep.name} manually:`, `\n${chalk.cyan(dep.installUrl)}`),
+          );
+          process.exit(1);
+        }
+      }
+    } else {
+      console.log(
+        chalk.yellow('\nPlease install the required dependencies manually and try again.'),
+      );
+      process.exit(1);
     }
-
-    const envFile = path.join(targetDir, '.env');
-    if (!(await fs.pathExists(envFile))) {
-      await fs.writeFile(envFile, '# Environment Variables\n');
-    }
-  } catch (error) {
-    throw new Error(`Failed to copy project template: ${error.message}`);
   }
+
+  return true;
 }
 
 export async function findProjectRoot(startDir) {

@@ -10,8 +10,9 @@ import {
 } from './ui.js';
 import dockerNames from 'docker-names';
 import debug from 'debug';
-import { selectDockerOperation } from './docker.js';
+import { selectDockerOperation, createNetwork, waitForContainer } from './docker.js';
 import boxen from 'boxen';
+import { confirm } from '@clack/prompts';
 
 const INIT_STEPS = {
   CLEANUP: 1,
@@ -341,6 +342,7 @@ export async function cleanupServices() {
 export async function initializeServices(options = {}) {
   const { showProgress = true } = options;
   const totalSteps = Object.keys(INIT_STEPS).length;
+  const maxRetries = 3;
 
   console.clear();
   console.log('\n'.repeat(10));
@@ -350,80 +352,201 @@ export async function initializeServices(options = {}) {
     const logPrefix = `[${dockerNames.getRandomName(true)}] `;
     log('Starting initialization in %s mode', mode);
 
-    // Step 1: Handle existing services based on mode
-    if (showProgress) {
-      process.stdout.write('\x1B[H');
-      console.log(showInitializationProgress(1, totalSteps, 'Preparing environment...'));
-    }
+    // Handle manual mode
+    if (mode === 'manual') {
+      console.log(
+        boxen(
+          chalk.green(
+            [
+              '🔄 Checking existing services...',
+              '',
+              'Skipping automated initialization.',
+              'Proceeding with existing container state.',
+              '',
+              '⚠️  Make sure all required services are running!',
+            ].join('\n'),
+          ),
+          {
+            padding: 1,
+            margin: 1,
+            borderStyle: 'round',
+            borderColor: 'green',
+          },
+        ),
+      );
 
-    if (mode === 'fresh') {
-      await cleanupServices({ removeVolumes: true });
-    } else if (mode === 'reinit') {
-      await cleanupServices({ removeVolumes: false });
-    }
-
-    // Step 2: Network setup
-    if (showProgress) {
-      process.stdout.write('\x1B[H');
-      console.log(showInitializationProgress(2, totalSteps, 'Setting up network...'));
-    }
-    await createNetwork();
-    const services = ['postgres', 'redis', 'minio'];
-    const logProcesses = [];
-
-    for (const [index, service] of services.entries()) {
-      if (showProgress) {
-        process.stdout.write('\x1B[H');
+      const health = await checkServiceHealth();
+      if (!health.healthy) {
         console.log(
-          showInitializationProgress(index + 3, totalSteps, `Initializing ${service}...`),
+          boxen(
+            chalk.yellow(
+              [
+                '⚠️  Service Health Check Failed',
+                '',
+                'Some services are not healthy or missing.',
+                'You may want to:',
+                '',
+                '1. Check container logs for errors',
+                '2. Restart unhealthy containers',
+                '3. Run setup again with "Fresh Start"',
+                '',
+                'Issues:',
+                ...health.issues.map((issue) => `• ${issue}`),
+              ].join('\n'),
+            ),
+            {
+              padding: 1,
+              margin: 1,
+              borderStyle: 'round',
+              borderColor: 'yellow',
+            },
+          ),
         );
-      }
 
+        const proceed = await confirm({
+          message: 'Continue anyway? (Not recommended)',
+          initialValue: false,
+        });
+
+        if (!proceed) {
+          throw new Error('Service health check failed - Please fix issues and try again');
+        }
+      }
+      return { status: 'manual', mode, health };
+    }
+
+    // Automated initialization
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        await spawnDockerCommand(
-          'docker-compose',
-          ['-f', 'docker-compose.dev.yml', 'up', '-d', `${service}-dev`],
-          { logPrefix: `[${service}] ` },
-        );
+        if (mode === 'fresh' || mode === 'reinit') {
+          if (showProgress) {
+            process.stdout.write('\x1B[H');
+            console.log(
+              showInitializationProgress(1, totalSteps, 'Cleaning up existing services...'),
+            );
+          }
+          await cleanupServices(mode === 'fresh');
+        }
 
-        logProcesses.push(
-          streamContainerLogs(`zephyr-${service}-dev`, { logPrefix: `[${service}] ` }),
-        );
-        await waitForContainer(`zephyr-${service}-dev`, 'healthy');
+        if (showProgress) {
+          process.stdout.write('\x1B[H');
+          console.log(showInitializationProgress(2, totalSteps, 'Setting up network...'));
+        }
+        await createNetwork();
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+        const services = ['postgres', 'redis', 'minio'];
+        const logProcesses = [];
+        const initContainers = [];
+
+        for (const [index, service] of services.entries()) {
+          if (showProgress) {
+            process.stdout.write('\x1B[H');
+            console.log(
+              showInitializationProgress(
+                index + 3,
+                totalSteps,
+                `Initializing ${service} (Attempt ${attempt}/${maxRetries})...`,
+              ),
+            );
+          }
+
+          try {
+            if (mode !== 'existing') {
+              await spawnDockerCommand(
+                'docker-compose',
+                ['-f', 'docker-compose.dev.yml', 'rm', '-f', '-s', `${service}-dev`],
+                { logPrefix: `[${service}] `, silent: true },
+              );
+            }
+
+            await spawnDockerCommand(
+              'docker-compose',
+              ['-f', 'docker-compose.dev.yml', 'up', '-d', `${service}-dev`],
+              { logPrefix: `[${service}] ` },
+            );
+
+            if (SERVICES[service]?.initContainer) {
+              await spawnDockerCommand(
+                'docker-compose',
+                [
+                  '-f',
+                  'docker-compose.dev.yml',
+                  '--profile',
+                  'init',
+                  'up',
+                  '-d',
+                  `${service}-init`,
+                ],
+                { logPrefix: `[${service}-init] ` },
+              );
+              initContainers.push(`${service}-init`);
+            }
+
+            await new Promise((resolve) => setTimeout(resolve, 5000));
+            logProcesses.push(
+              streamContainerLogs(`zephyr-${service}-dev`, { logPrefix: `[${service}] ` }),
+            );
+
+            await waitForContainer(`zephyr-${service}-dev`, 'healthy', {
+              timeout: 60000,
+              interval: 2000,
+            });
+          } catch (error) {
+            throw new ServiceError(service, error);
+          }
+        }
+
+        // Wait for init containers
+        if (initContainers.length > 0) {
+          if (showProgress) {
+            process.stdout.write('\x1B[H');
+            console.log(
+              showInitializationProgress(
+                totalSteps - 1,
+                totalSteps,
+                'Waiting for initialization...',
+              ),
+            );
+          }
+
+          for (const container of initContainers) {
+            try {
+              await waitForContainer(container, 'done', {
+                timeout: 120000,
+                interval: 5000,
+              });
+            } catch (error) {
+              console.log(chalk.yellow(`Warning: Init container ${container} timed out`));
+            }
+          }
+        }
+
+        // Final verification
+        if (showProgress) {
+          process.stdout.write('\x1B[H');
+          console.log(showInitializationProgress(totalSteps, totalSteps, 'Verifying services...'));
+        }
+
+        const health = await checkServiceHealth();
+        if (!health.healthy) {
+          throw new Error(`Service health check failed:\n${health.issues.join('\n')}`);
+        }
+
+        // Cleanup
+        logProcesses.forEach((proc) => proc.kill());
+        return { status: 'success', mode, health };
       } catch (error) {
-        throw new ServiceError(service, error);
+        if (attempt === maxRetries) {
+          throw error;
+        }
+        console.log(chalk.yellow(`\nRetrying initialization (${attempt}/${maxRetries})...`));
+        await stopServices().catch(() => {});
+        await new Promise((resolve) => setTimeout(resolve, 5000));
       }
     }
-
-    // Final health check
-    if (showProgress) {
-      process.stdout.write('\x1B[H');
-      console.log(showInitializationProgress(totalSteps, totalSteps, 'Verifying services...'));
-    }
-
-    const health = await checkServiceHealth();
-    if (!health.healthy) {
-      throw new Error(`Service health check failed:\n${health.issues.join('\n')}`);
-    }
-
-    // Cleanup
-    logProcesses.forEach((proc) => proc.kill());
-
-    return { status: 'success', mode, health };
   } catch (error) {
-    if (error instanceof ServiceError) {
-      console.error(chalk.red(`\nService initialization failed for ${error.service}:`));
-      console.error(chalk.yellow(error.details));
-    } else {
-      console.error(chalk.red('\nInitialization failed:'));
-      console.error(chalk.yellow(error.message));
-    }
-
-    if (error.output?.length) {
-      console.log('\nCommand output:');
-      console.log(error.output.join('\n'));
-    }
-
+    console.error(chalk.red('\nService initialization failed:'));
+    console.error(chalk.yellow(error.message));
     throw error;
   }
 }
@@ -510,60 +633,6 @@ export async function waitForInitServices(maxAttempts = 60) {
     spinner.fail(chalk.red('Initialization failed'));
     return false;
   }
-}
-
-async function waitForContainer(container, status) {
-  return retry(
-    async () => {
-      const proc = spawn('docker', ['inspect', container], { stdio: ['ignore', 'pipe', 'pipe'] });
-
-      return new Promise((resolve, reject) => {
-        let output = '';
-
-        proc.stdout.on('data', (data) => {
-          output += data.toString();
-        });
-
-        proc.stderr.on('data', (data) => {
-          process.stdout.write(`\x1B[u\x1B[2B\n${chalk.yellow(data.toString())}`);
-        });
-
-        proc.on('close', (code) => {
-          if (code === 0) {
-            const info = JSON.parse(output)[0];
-
-            if (status === 'done') {
-              if (!info.State.Running && info.State.ExitCode === 0) {
-                resolve(true);
-              } else if (info.State.ExitCode !== 0) {
-                reject(
-                  new Error(`Container ${container} failed with exit code ${info.State.ExitCode}`),
-                );
-              } else {
-                reject(new Error(`Waiting for ${container} to complete...`));
-              }
-            } else if (status === 'healthy') {
-              if (info.State.Health && info.State.Health.Status === 'healthy') {
-                resolve(true);
-              } else {
-                reject(new Error(`Waiting for ${container} to become healthy...`));
-              }
-            }
-          } else {
-            reject(new Error(`Failed to inspect container ${container}`));
-          }
-        });
-      });
-    },
-    {
-      retries: 30,
-      minTimeout: 2000,
-      maxTimeout: 5000,
-      onRetry: (error) => {
-        process.stdout.write(`\x1B[u\x1B[2B\n${chalk.dim(`${error.message}`)}`);
-      },
-    },
-  );
 }
 
 async function streamContainerLogs(container) {
@@ -655,35 +724,5 @@ export async function checkServiceHealth() {
   } catch (error) {
     spinner.fail(chalk.red('Health check failed'));
     throw error;
-  }
-}
-
-async function createNetwork() {
-  const spinner = createSpinner('Setting up Docker network...');
-  spinner.start();
-
-  try {
-    const networks = execSync('docker network ls --format "{{.Name}}"', {
-      stdio: 'pipe',
-    })
-      .toString()
-      .split('\n');
-
-    if (networks.includes('zephyr_dev_network')) {
-      spinner.succeed('Docker network already exists');
-      return;
-    }
-
-    execSync('docker network create zephyr_dev_network', {
-      stdio: 'pipe',
-    });
-    spinner.succeed('Docker network created successfully');
-  } catch (error) {
-    if (error.message.includes('already exists')) {
-      spinner.succeed('Docker network already exists');
-      return;
-    }
-    spinner.fail(`Failed to setup Docker network: ${error.message}`);
-    throw new Error(`Failed to create network: ${error.message}`);
   }
 }
