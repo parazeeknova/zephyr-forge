@@ -11,6 +11,7 @@ import { devCommand } from './commands/dev.js';
 import { checkDocker } from '../lib/docker.js';
 import { handleDirectorySetup, ensureParentDirectory } from '../lib/handler.js';
 import boxen from 'boxen';
+import { checkEnvCommand } from './commands/env.js';
 
 const sleep = (ms = 1000) => setTimeout(ms);
 
@@ -69,6 +70,9 @@ function showHelp() {
         '  setup         Initialize and start development environment',
         '  init          Create a new Zephyr project',
         '  dev           Start development environment for existing project',
+        '  env:check     Check environment requirements',
+        '  env:validate  Validate environment configuration',
+        '  env:fix       Fix environment configuration',
         '',
         chalk.yellow('Options:'),
         '  --help, -h    Show this help message',
@@ -197,7 +201,7 @@ async function main() {
   try {
     const args = process.argv.slice(2);
     const helpFlags = ['--help', '-h'];
-    const validCommands = ['setup', 'init', 'dev'];
+    const validCommands = ['setup', 'init', 'dev', 'env:check', 'env:validate', 'env:fix'];
     const versionFlags = ['--version', '-v'];
 
     if (args.length === 0) {
@@ -236,6 +240,11 @@ async function main() {
         '\n   npx zephyr-forge@latest setup  (Initialize and start development)',
         '\n   npx zephyr-forge@latest init   (Only initialize)',
         '\n   npx zephyr-forge@latest dev    (Only start development)',
+        '\n   npx zephyr-forge@latest --help (Show help and options)',
+        '\n   npx zephyr-forge@latest --version (Show version number)',
+        '\n   npx zephyr-forge@latest env:check (Check environment requirements)',
+        '\n   npx zephyr-forge@latest env:validate (Validate environment configuration)',
+        '\n   npx zephyr-forge@latest env:fix (Fix environment configuration)',
       );
       process.exit(1);
     }
@@ -263,6 +272,11 @@ async function main() {
           { value: 'setup', label: 'Setup Project', hint: 'Initialize and start development' },
           { value: 'init', label: 'Initialize Only', hint: 'Create a new Zephyr project' },
           { value: 'dev', label: 'Development Only', hint: 'For existing project' },
+          { value: 'help', label: 'Help', hint: 'Show help and options' },
+          { value: 'version', label: 'Version', hint: 'Show version number' },
+          { value: 'env:check', label: 'Check Environment', hint: 'Verify system requirements' },
+          { value: 'env:validate', label: 'Validate Environment', hint: 'Check configuration' },
+          { value: 'env:fix', label: 'Fix Environment', hint: 'Automatically fix issues' },
           { value: 'exit', label: 'Exit' },
         ],
       });
@@ -387,6 +401,31 @@ async function main() {
       case 'exit': {
         outro(chalk.green('👋 Goodbye!'));
         process.exit(0);
+        break;
+      }
+
+      case 'env:check':
+      case 'env:validate':
+      case 'env:fix': {
+        let projectRoot;
+        try {
+          projectRoot = await findProjectRoot(process.cwd());
+        } catch (error) {
+          console.log(
+            chalk.red(
+              '⚠️  Not in a Zephyr project directory. Please run this command from your Zephyr project root.',
+            ),
+          );
+          process.exit(1);
+        }
+
+        const command = process.argv[2].split(':')[1];
+        await checkEnvCommand({
+          projectRoot,
+          mode: command,
+          fix: command === 'fix',
+          validate: command === 'validate',
+        });
         break;
       }
 
