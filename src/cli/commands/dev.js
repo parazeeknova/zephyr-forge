@@ -1,4 +1,4 @@
-import { intro, outro, spinner, confirm } from '@clack/prompts';
+import { intro, outro, spinner, confirm, select, isCancel } from '@clack/prompts';
 import chalk from 'chalk';
 import path from 'node:path';
 import { displayBanner } from '../../lib/ui.js';
@@ -14,6 +14,7 @@ import { validateEnvFiles } from '../../lib/env.js';
 import { createServiceStatusTable, showCompletionMessage } from '../../lib/ui.js';
 import { findProjectRoot } from '../../lib/utils.js';
 import fs from 'fs-extra';
+import boxen from 'boxen';
 
 const REQUIRED_FILES = ['docker-compose.dev.yml', 'package.json'];
 
@@ -183,32 +184,155 @@ export async function devCommand(options) {
     console.log(`\n${createServiceStatusTable(status)}`);
 
     if (status.needsInit) {
-      const shouldInit = await confirm({
-        message: 'Services need initialization. Would you like to proceed?',
-        initialValue: true,
+      const initChoice = await select({
+        message: 'Services need initialization. How would you like to proceed?',
+        options: [
+          { value: 'proceed', label: 'Initialize Services', hint: 'Set up all required services' },
+          { value: 'skip', label: 'Skip Initialization', hint: 'Continue without services' },
+          { value: 'cancel', label: 'Cancel', hint: 'Exit setup process' },
+        ],
       });
 
-      if (shouldInit) {
+      if (isCancel(initChoice) || initChoice === 'cancel') {
+        outro(chalk.yellow('Operation cancelled'));
+        process.exit(0);
+      }
+
+      if (initChoice === 'skip') {
+        console.log(
+          boxen(
+            chalk.yellow(
+              [
+                '⚠️ Skipping service initialization',
+                '',
+                'Remember: You will need to:',
+                '1. Initialize services manually',
+                '2. Run docker-compose up',
+                '3. Ensure all services are healthy',
+                '',
+                'You can do this later using:',
+                chalk.dim('docker-compose -f docker-compose.dev.yml up -d'),
+              ].join('\n'),
+            ),
+            {
+              padding: 1,
+              margin: 1,
+              borderStyle: 'round',
+              borderColor: 'yellow',
+              title: '⚠️ Manual Setup Required',
+              titleAlignment: 'center',
+            },
+          ),
+        );
+
+        const proceed = await confirm({
+          message: 'Continue without service health checks?',
+          initialValue: false,
+        });
+
+        if (!proceed) {
+          outro(chalk.yellow('Setup cancelled'));
+          process.exit(0);
+        }
+
+        showCompletionMessage({
+          directory: projectRoot,
+          services: {},
+          urls: {
+            api: 'http://localhost:3456 (not available)',
+            web: 'http://localhost:3000 (not available)',
+            minio: 'http://localhost:9001 (not available)',
+          },
+          skipped: true,
+        });
+
+        outro(
+          chalk.yellow('⚠️ Setup completed without services. Remember to initialize them manually.'),
+        );
+        process.exit(0);
+        return;
+      }
+
+      if (initChoice === 'proceed') {
         try {
           await initializeServices({ showProgress: true });
         } catch (error) {
           throw new Error(`Service initialization failed: ${error.message}`);
         }
-      } else {
+      }
+    } else if (status.running.length > 0) {
+      const serviceAction = await select({
+        message: 'Services are already running. What would you like to do?',
+        options: [
+          { value: 'restart', label: 'Restart Services', hint: 'Stop and start all services' },
+          { value: 'continue', label: 'Continue', hint: 'Use existing services' },
+          { value: 'stop', label: 'Stop Services', hint: 'Stop all running services' },
+        ],
+      });
+
+      if (isCancel(serviceAction)) {
         outro(chalk.yellow('Operation cancelled'));
         process.exit(0);
       }
-    } else if (status.running.length > 0) {
-      const restart = await confirm({
-        message: 'Services are already running. Restart them?',
-        initialValue: false,
-      });
 
-      if (restart) {
-        s.start('Restarting services');
-        await stopServices();
-        await startServices();
-        s.stop('Services restarted');
+      switch (serviceAction) {
+        case 'restart':
+          s.start('Restarting services');
+          try {
+            await stopServices();
+            await startServices();
+            s.stop('Services restarted successfully');
+          } catch (error) {
+            s.stop(chalk.red(`Failed to restart services: ${error.message}`));
+            throw error;
+          }
+          break;
+
+        case 'stop':
+          s.start('Stopping services');
+          try {
+            await stopServices();
+            s.stop('Services stopped successfully');
+            outro(
+              chalk.green(
+                'Services have been stopped. Use `zephyr-forge dev` to start them again.',
+              ),
+            );
+            process.exit(0);
+          } catch (error) {
+            s.stop(chalk.red(`Failed to stop services: ${error.message}`));
+            throw error;
+          }
+          break;
+
+        case 'continue':
+          s.start('Checking service health');
+          try {
+            const healthCheck = await checkServiceHealth();
+            if (!healthCheck.healthy) {
+              s.stop(chalk.yellow('Warning: Some services may not be healthy'));
+              console.log(chalk.dim('Health check issues:'));
+              healthCheck.issues.forEach((issue) => {
+                console.log(chalk.dim(`  • ${issue}`));
+              });
+
+              const proceed = await confirm({
+                message: 'Continue anyway?',
+                initialValue: false,
+              });
+
+              if (!proceed) {
+                outro(chalk.yellow('Operation cancelled'));
+                process.exit(0);
+              }
+            } else {
+              s.stop('All services are healthy');
+            }
+          } catch (error) {
+            s.stop(chalk.red(`Health check failed: ${error.message}`));
+            throw error;
+          }
+          break;
       }
     }
 

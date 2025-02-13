@@ -38,6 +38,9 @@ npx zephyr-forge@latest setup
 npx zephyr-forge@latest dev
 ```
 
+> [!NOTE]
+> Run ```npx zephyr-forge@latest --help``` for more information. If you are using Github Packages, replace `zephyr-forge` with `@parazeeknova/zephyr-forge`.
+
 ## Features 🎉
 
 🔁 **Automated Environment Setup and Configuration**: Zephyr Forge takes care of the entire setup process, ensuring that your development environment is configured correctly without manual intervention.

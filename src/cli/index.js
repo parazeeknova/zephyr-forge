@@ -1,4 +1,4 @@
-import { outro, select, confirm, text, isCancel } from '@clack/prompts';
+import { outro, select, confirm, text, isCancel, spinner } from '@clack/prompts';
 import { setTimeout } from 'node:timers/promises';
 import fs from 'fs-extra';
 import path from 'node:path';
@@ -12,6 +12,7 @@ import { checkDocker } from '../lib/docker.js';
 import { handleDirectorySetup, ensureParentDirectory } from '../lib/handler.js';
 import boxen from 'boxen';
 import { checkEnvCommand } from '../lib/env.js';
+import { execSync } from 'node:child_process';
 
 const sleep = (ms = 1000) => setTimeout(ms);
 
@@ -256,13 +257,143 @@ async function main() {
     }));
     requirements.push(dockerStatus);
     const missingReqs = requirements.filter((req) => !req.installed);
+    const missingRequired = missingReqs.filter((req) => !req.optional);
+    const missingOptional = missingReqs.filter((req) => req.optional);
 
-    if (missingReqs.length > 0) {
-      console.log(chalk.red('\n❌ Missing requirements:'));
-      missingReqs.forEach((req) => {
+    if (missingRequired.length > 0) {
+      console.log(chalk.red('\n❌ Missing required dependencies:'));
+      missingRequired.forEach((req) => {
         console.log(chalk.yellow(`• ${req.name}: ${req.error}`));
       });
       process.exit(1);
+    }
+
+    if (missingOptional.length > 0) {
+      console.log(chalk.yellow('\n⚠️  Missing optional dependencies:'));
+      missingOptional.forEach((req) => {
+        console.log(chalk.dim(`• ${req.name}: ${req.error}`));
+      });
+
+      const installChoice = await select({
+        message: 'How would you like to proceed with optional dependencies?',
+        options: [
+          {
+            value: 'install',
+            label: 'Install Missing',
+            hint: 'Install all missing optional dependencies',
+          },
+          {
+            value: 'skip',
+            label: 'Skip Installation',
+            hint: '⚠️ Some features may be limited',
+          },
+          {
+            value: 'cancel',
+            label: 'Cancel Setup',
+            hint: 'Exit the setup process',
+          },
+        ],
+      });
+
+      if (isCancel(installChoice) || installChoice === 'cancel') {
+        outro(chalk.yellow('Operation cancelled'));
+        process.exit(0);
+      }
+
+      if (installChoice === 'skip') {
+        console.log(
+          boxen(
+            chalk.yellow(
+              [
+                '⚠️ Warning: Proceeding without optional dependencies',
+                '',
+                'Some features may be limited or unavailable:',
+                '• pnpm: Required for package management',
+                '• bun: Required for optimal development experience',
+                '',
+                'You can install these later using:',
+                chalk.dim('npm install -g pnpm'),
+                chalk.dim('npm install -g bun'),
+              ].join('\n'),
+            ),
+            {
+              padding: 1,
+              margin: 1,
+              borderStyle: 'round',
+              borderColor: 'yellow',
+              title: '⚠️ Limited Functionality',
+              titleAlignment: 'center',
+            },
+          ),
+        );
+      }
+
+      if (installChoice === 'install') {
+        const s = spinner();
+        for (const req of missingOptional) {
+          try {
+            s.start(`Installing ${req.name}...`);
+
+            if (req.name === 'pnpm') {
+              try {
+                execSync('pnpm --version', { stdio: 'pipe' });
+                s.stop(chalk.green(`✓ ${req.name} is already installed`));
+                continue;
+              } catch {
+                execSync('npm install -g pnpm', { stdio: 'pipe' });
+              }
+            } else if (req.name === 'bun') {
+              try {
+                execSync('bun --version', { stdio: 'pipe' });
+                s.stop(chalk.green(`✓ ${req.name} is already installed`));
+                continue;
+              } catch {
+                execSync('npm install -g bun', { stdio: 'pipe' });
+              }
+            }
+
+            try {
+              execSync(`${req.name} --version`, { stdio: 'pipe' });
+              s.stop(chalk.green(`✓ ${req.name} installed successfully`));
+            } catch (error) {
+              throw new Error('Installation verification failed');
+            }
+          } catch (error) {
+            s.stop(chalk.red(`✗ Failed to install ${req.name}`));
+            console.log(chalk.dim(`Error: ${error.message}`));
+
+            const retry = await confirm({
+              message: `Would you like to retry installing ${req.name}?`,
+              initialValue: true,
+            });
+
+            if (retry) {
+              continue;
+            }
+
+            console.log(
+              boxen(
+                chalk.yellow(
+                  [
+                    `⚠️ ${req.name} installation skipped`,
+                    '',
+                    'You can install it manually later using:',
+                    chalk.dim(`npm install -g ${req.name}`),
+                    '',
+                    'Some features may be limited without this dependency.',
+                  ].join('\n'),
+                ),
+                {
+                  padding: 1,
+                  margin: 1,
+                  borderStyle: 'round',
+                  borderColor: 'yellow',
+                },
+              ),
+            );
+          }
+        }
+      }
     }
 
     if (!process.argv[2]) {
@@ -292,7 +423,6 @@ async function main() {
     switch (process.argv[2]) {
       case 'setup': {
         const locations = await getPreferredLocations();
-
         const locationChoice = await select({
           message: 'Where would you like to clone Zephyr?',
           options: locations,
@@ -305,7 +435,6 @@ async function main() {
         }
 
         let targetDir = locationChoice;
-
         if (locationChoice === 'custom') {
           targetDir = await text({
             message: 'Enter the path where you want to clone Zephyr:',
@@ -326,22 +455,126 @@ async function main() {
         await ensureParentDirectory(targetDir);
         const setupResult = await handleDirectorySetup(targetDir);
         process.chdir(setupResult.path);
-        await setupCommand({ projectRoot: setupResult.path });
 
-        const startDev = await confirm({
-          message: 'Setup complete! Would you like to start the development environment?',
-          initialValue: true,
+        const depChoice = await select({
+          message: 'How would you like to handle project dependencies?',
+          options: [
+            { value: 'install', label: 'Install Dependencies', hint: 'Recommended' },
+            { value: 'skip', label: 'Skip Installation', hint: '⚠️ Manual setup required' },
+            { value: 'cancel', label: 'Cancel Setup', hint: 'Exit setup process' },
+          ],
         });
 
-        if (startDev) {
-          await devCommand({ projectRoot: setupResult.path });
-        } else {
-          outro(
-            chalk.green(`✨ Setup complete! Run the following commands to start development:
-      cd ${path.basename(setupResult.path)}
-      npx zephyr-forge dev`),
-          );
+        if (depChoice === 'cancel' || isCancel(depChoice)) {
+          outro(chalk.yellow('Setup cancelled'));
+          process.exit(0);
         }
+
+        if (depChoice === 'skip') {
+          console.log(
+            boxen(
+              chalk.yellow(
+                [
+                  '⚠️ Skipping dependency installation',
+                  '',
+                  'Important: You will need to:',
+                  '1. Install dependencies manually before starting development',
+                  '2. Run the command in the project directory:',
+                  chalk.dim('   pnpm install'),
+                  '',
+                  'Note: Some features may not work until dependencies are installed',
+                  'We recommend running pnpm install before starting development.',
+                  '',
+                  chalk.dim(`Project directory: ${setupResult.path}`),
+                ].join('\n'),
+              ),
+              {
+                padding: 1,
+                margin: 1,
+                borderStyle: 'round',
+                borderColor: 'yellow',
+                title: '⚠️ Manual Setup Required',
+                titleAlignment: 'center',
+              },
+            ),
+          );
+
+          const proceed = await confirm({
+            message: 'Continue with setup (without installing dependencies)?',
+            initialValue: false,
+          });
+
+          if (!proceed || isCancel(proceed)) {
+            outro(chalk.yellow('Setup cancelled'));
+            process.exit(0);
+          }
+        } else {
+          const s = spinner();
+          s.start('Installing project dependencies...');
+
+          try {
+            execSync('pnpm install', {
+              stdio: 'inherit',
+              cwd: setupResult.path,
+            });
+            s.stop('Dependencies installed successfully');
+          } catch (error) {
+            s.stop(chalk.red(`Failed to install dependencies: ${error.message}`));
+            const action = await select({
+              message: 'How would you like to proceed?',
+              options: [
+                { value: 'retry', label: 'Retry Installation', hint: 'Try again' },
+                {
+                  value: 'skip',
+                  label: 'Skip Installation',
+                  hint: 'Continue without dependencies',
+                },
+                { value: 'cancel', label: 'Cancel Setup', hint: 'Exit process' },
+              ],
+            });
+
+            if (action === 'cancel' || isCancel(action)) {
+              outro(chalk.yellow('Setup cancelled'));
+              process.exit(0);
+            }
+
+            if (action === 'retry') {
+              process.argv[2] = 'setup';
+              return main();
+            }
+
+            if (action === 'skip') {
+              console.log(
+                boxen(
+                  chalk.yellow(
+                    [
+                      '⚠️ Proceeding without dependencies',
+                      '',
+                      'Remember to install them manually using:',
+                      chalk.dim(`cd ${setupResult.path}`),
+                      chalk.dim('pnpm install'),
+                      '',
+                      'Some features may not work until dependencies are installed.',
+                    ].join('\n'),
+                  ),
+                  {
+                    padding: 1,
+                    margin: 1,
+                    borderStyle: 'round',
+                    borderColor: 'yellow',
+                  },
+                ),
+              );
+            }
+          }
+        }
+
+        await setupCommand({
+          projectRoot: setupResult.path,
+          skipCompletion: true,
+        });
+
+        await devCommand({ projectRoot: setupResult.path });
         break;
       }
 
