@@ -6,6 +6,8 @@ import { table } from 'table';
 import prettyBytes from 'pretty-bytes';
 import prettyMs from 'pretty-ms';
 import { pastel, morning, vice } from 'gradient-string';
+import { select, isCancel, outro } from '@clack/prompts';
+import { exec } from 'node:child_process';
 
 const BOXEN_CONFIG = {
   padding: 1,
@@ -359,5 +361,53 @@ export async function getContainerStats(containerId) {
       memory_stats: { usage: 0 },
       cpu_stats: { cpu_usage: { percent: 0 } },
     };
+  }
+}
+
+export async function showFinalOptions(projectRoot) {
+  const action = await select({
+    message: 'What would you like to do next?',
+    options: [
+      { value: 'vscode', label: 'Open in VS Code', hint: 'Launch VS Code editor' },
+      { value: 'github', label: 'Visit GitHub Repository', hint: 'Open in browser' },
+      { value: 'zephyr', label: 'Visit Zephyr Website', hint: 'Open documentation' },
+      { value: 'dev', label: 'Start Development', hint: 'Run turbo dev' },
+      { value: 'setup', label: 'Run Setup Again', hint: 'Start fresh setup' },
+      { value: 'exit', label: 'Exit', hint: 'Close CLI' },
+    ],
+  });
+
+  if (isCancel(action)) {
+    outro(chalk.yellow('Operation cancelled'));
+    process.exit(0);
+  }
+
+  try {
+    switch (action) {
+      case 'vscode':
+        exec(`code "${projectRoot}"`);
+        break;
+      case 'github':
+        exec(
+          'open https://github.com/parazeeknova/zephyr || xdg-open https://github.com/parazeeknova/zephyr || start https://github.com/parazeeknova/zephyr',
+        );
+        break;
+      case 'zephyr':
+        exec(
+          'open https://zephyr-forge.vercel.app || xdg-open https://zephyr-forge.vercel.app || start https://zephyr-forge.vercel.app',
+        );
+        break;
+      case 'dev':
+        console.log(chalk.blue('\nStarting development server...'));
+        exec('pnpm run dev', { cwd: projectRoot });
+        break;
+      case 'setup':
+        return process.exit(1);
+      case 'exit':
+        outro(chalk.green('👋 Happy coding!'));
+        process.exit(0);
+    }
+  } catch (error) {
+    console.log(chalk.yellow(`Command failed: ${error.message}`));
   }
 }
