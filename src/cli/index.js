@@ -11,7 +11,7 @@ import { devCommand } from './commands/dev.js';
 import { checkDocker } from '../lib/docker.js';
 import { handleDirectorySetup, ensureParentDirectory } from '../lib/handler.js';
 import boxen from 'boxen';
-import { checkEnvCommand } from './commands/env.js';
+import { checkEnvCommand } from './lib/env.js';
 
 const sleep = (ms = 1000) => setTimeout(ms);
 
