@@ -1,3 +1,6 @@
+> [!WARNING]
+> Deprecated as of 30 May 2025 | This setup is no longer maintained. Please use the manual setup from Zephyr instead. Reason: It does not adhere to suckless principles or minimalism.
+
 <div align="center">
 
   <a href="https://forge.zephyyrr.in">
